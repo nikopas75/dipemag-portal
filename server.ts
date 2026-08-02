@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import crypto from 'crypto';
@@ -155,11 +156,11 @@ async function getTargetTable(pool: mysql.Pool): Promise<string> {
 
 let dbConfig: MysqlConfig = {
   mode: 'external',
-  host: process.env.DB_HOST || '2.tcp.eu.ngrok.io',
-  port: Number(process.env.DB_PORT) || 16641,
-  user: process.env.DB_USER && process.env.DB_USER !== 'mysql_user' ? process.env.DB_USER : 'plinetamag',
-  password: process.env.DB_PASSWORD && process.env.DB_PASSWORD !== 'mysql_password' ? process.env.DB_PASSWORD : 'pl!n3tAmag',
-  database: 'e_aitisi',
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT) || 3306,
+  user: process.env.DB_USER || 'plinetamag',
+  password: process.env.DB_PASSWORD || 'pl!n3tAmag',
+  database: process.env.DB_AITISI_NAME || 'e_aitisi',
   isConnected: false,
   activeConnectionMessage: 'Έλεγχος σύνδεσης με τη βάση δεδομένων MySQL...'
 };
@@ -361,13 +362,13 @@ async function startServer() {
       }
       dbConfig = {
         mode: 'embedded',
-        host: process.env.DB_HOST || '2.tcp.eu.ngrok.io',
-        port: Number(process.env.DB_PORT) || 16641,
-        user: process.env.DB_USER && process.env.DB_USER !== 'mysql_user' ? process.env.DB_USER : 'plinetamag',
-        password: process.env.DB_PASSWORD && process.env.DB_PASSWORD !== 'mysql_password' ? process.env.DB_PASSWORD : 'pl!n3tAmag',
-        database: 'e_aitisi',
+        host: process.env.DB_HOST || 'localhost',
+        port: Number(process.env.DB_PORT) || 3306,
+        user: process.env.DB_USER || 'plinetamag',
+        password: process.env.DB_PASSWORD || 'pl!n3tAmag',
+        database: process.env.DB_AITISI_NAME || 'e_aitisi',
         isConnected: true,
-        activeConnectionMessage: 'Ενσωματωμένη Λειτουργία Sandbox (Προρυθμισμένα στοιχεία ngrok)'
+        activeConnectionMessage: 'Ενσωματωμένη Λειτουργία Sandbox (Προρυθμισμένα στοιχεία MySQL)'
       };
       addAuditLog('System', 'SWITCH TO EMBEDDED MYSQL SANDBOX ENGINE', 'CONNECT', 0, 2);
       return res.json({ success: true, config: dbConfig });
@@ -2397,18 +2398,19 @@ Records Sample: ${JSON.stringify(recordSummary)}`
   });
 
 async function autoConnectToNgrok() {
-  const defaultHost = process.env.DB_HOST || '2.tcp.eu.ngrok.io';
-  const defaultPort = Number(process.env.DB_PORT) || 16641;
-  const defaultUser = process.env.DB_USER && process.env.DB_USER !== 'mysql_user' ? process.env.DB_USER : 'plinetamag';
-  const defaultPass = process.env.DB_PASSWORD && process.env.DB_PASSWORD !== 'mysql_password' ? process.env.DB_PASSWORD : 'pl!n3tAmag';
+  const defaultHost = process.env.DB_HOST || 'localhost';
+  const defaultPort = Number(process.env.DB_PORT) || 3306;
+  const defaultUser = process.env.DB_USER || 'plinetamag';
+  const defaultPass = process.env.DB_PASSWORD || 'pl!n3tAmag';
+  const defaultDatabase = process.env.DB_AITISI_NAME || 'e_aitisi';
   try {
-    console.log(`Auto-connecting to user's ngrok MySQL tunnel: ${defaultHost}:${defaultPort}...`);
+    console.log(`Auto-connecting to user's MySQL server: ${defaultHost}:${defaultPort}...`);
     const pool = mysql.createPool({
       host: defaultHost,
       port: defaultPort,
       user: defaultUser,
       password: defaultPass,
-      database: 'e_aitisi',
+      database: defaultDatabase,
       waitForConnections: true,
       connectionLimit: 10,
       connectTimeout: 5000
@@ -2422,12 +2424,12 @@ async function autoConnectToNgrok() {
       port: defaultPort,
       user: defaultUser,
       password: defaultPass,
-      database: 'e_aitisi',
+      database: defaultDatabase,
       isConnected: true,
-      activeConnectionMessage: `Αυτόματη Σύνδεση MySQL μέσω ngrok (${defaultUser}@${defaultHost}:${defaultPort}/e_aitisi)`
+      activeConnectionMessage: `Αυτόματη Σύνδεση MySQL (${defaultUser}@${defaultHost}:${defaultPort}/${defaultDatabase})`
     };
-    addAuditLog('System Boot', `AUTO-CONNECTED TO NGROK MYSQL TUNNEL (${defaultHost}:${defaultPort})`, 'CONNECT', 1, 0);
-    console.log("Successfully auto-connected to external ngrok MySQL!");
+    addAuditLog('System Boot', `AUTO-CONNECTED TO MYSQL SERVER (${defaultHost}:${defaultPort})`, 'CONNECT', 1, 0);
+    console.log("Successfully auto-connected to external MySQL!");
   } catch (err: any) {
     console.warn("Auto-connect to ngrok tunnel failed or not reachable yet:", err.message);
     if (externalPool) {
