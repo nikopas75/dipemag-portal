@@ -327,19 +327,46 @@ if ($route === '/api/plinetamag/settings') {
     }
 }
 
+// Helper to read setting key safely
+function getSettingValue($pdo, $keyNames) {
+    if (!is_array($keyNames)) $keyNames = [$keyNames];
+    try {
+        foreach ($keyNames as $key) {
+            $stmt = $pdo->prepare("SELECT value_data FROM settings WHERE key_name = ?");
+            $stmt->execute([$key]);
+            $row = $stmt->fetch();
+            if ($row && !empty($row['value_data'])) {
+                $decoded = json_decode($row['value_data'], true);
+                if ($decoded !== null) return $decoded;
+                // Fallback for legacy PHP serialized data
+                $unserialized = @unserialize($row['value_data']);
+                if ($unserialized !== false) return $unserialized;
+            }
+        }
+    } catch (\Exception $e) {}
+    return null;
+}
+
+function saveSettingValue($pdo, $keyName, $val) {
+    try {
+        $json = json_encode($val, JSON_UNESCAPED_UNICODE);
+        $stmt = $pdo->prepare("INSERT INTO settings (key_name, value_data) VALUES (?, ?) ON DUPLICATE KEY UPDATE value_data = ?");
+        $stmt->execute([$keyName, $json, $json]);
+        return true;
+    } catch (\Exception $e) {
+        return false;
+    }
+}
+
 // GET & POST /api/plinetamag/admins
 if ($route === '/api/plinetamag/admins') {
     if ($method === 'GET') {
-        $stmt = $pdo->prepare("SELECT value_data FROM settings WHERE key_name = 'admins'");
-        $stmt->execute();
-        $row = $stmt->fetch();
-        sendJson(['success' => true, 'admins' => $row ? json_decode($row['value_data'], true) : []]);
+        $admins = getSettingValue($pdo, ['admins', 'prog_admins']);
+        sendJson(['success' => true, 'admins' => is_array($admins) ? $admins : []]);
     } else if ($method === 'POST') {
         $admins = $input['admins'] ?? null;
         if (!is_array($admins)) sendJson(['success' => false, 'error' => 'Invalid admins'], 400);
-        $json = json_encode($admins, JSON_UNESCAPED_UNICODE);
-        $stmt = $pdo->prepare("INSERT INTO settings (key_name, value_data) VALUES ('admins', ?) ON DUPLICATE KEY UPDATE value_data = ?");
-        $stmt->execute([$json, $json]);
+        saveSettingValue($pdo, 'admins', $admins);
         sendJson(['success' => true, 'message' => 'Οι διαχειριστές αποθηκεύτηκαν!']);
     }
 }
@@ -384,16 +411,16 @@ if ($route === '/api/plinetamag/restore-sync' && $method === 'POST') {
 // GET /api/programmatismos/admins & POST
 if ($route === '/api/programmatismos/admins') {
     if ($method === 'GET') {
-        $stmt = $pdo->prepare("SELECT value_data FROM settings WHERE key_name = 'prog_admins'");
-        $stmt->execute();
-        $row = $stmt->fetch();
-        sendJson(['success' => true, 'admins' => $row ? json_decode($row['value_data'], true) : [["username"=>"plinetamag","password"=>"plinetamag"]]]);
+        $admins = getSettingValue($pdo, ['admins', 'prog_admins']);
+        if (!is_array($admins) || count($admins) === 0) {
+            $admins = [["username" => "plinetamag", "password" => "pl!n3tAmag"]];
+        }
+        sendJson(['success' => true, 'admins' => $admins]);
     } else if ($method === 'POST') {
         $admins = $input['admins'] ?? null;
-        $json = json_encode($admins, JSON_UNESCAPED_UNICODE);
-        $stmt = $pdo->prepare("INSERT INTO settings (key_name, value_data) VALUES ('prog_admins', ?) ON DUPLICATE KEY UPDATE value_data = ?");
-        $stmt->execute([$json, $json]);
-        sendJson(['success' => true, 'message' => 'Οι διαχειριστές Προγραμματισμού αποθηκεύτηκαν!']);
+        if (!is_array($admins)) sendJson(['success' => false, 'error' => 'Invalid admins'], 400);
+        saveSettingValue($pdo, 'admins', $admins);
+        sendJson(['success' => true, 'message' => 'Οι διαχειριστές αποθηκεύτηκαν!']);
     }
 }
 
