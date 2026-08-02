@@ -9,6 +9,7 @@ import { SqlConsoleSection } from './components/SqlConsoleSection';
 import { PersonnelPortalSection } from './components/PersonnelPortalSection';
 import { SqlAuditLog, MysqlConfig, SqlQueryResult } from './types';
 import { Database, ShieldCheck, UserCheck, ArrowRight, GraduationCap, Key, AlertCircle, X, Terminal, Sparkles, Users, Server, LogOut } from 'lucide-react';
+import { getResolvedDbConfig } from '../../config/dbDefaults';
 
 export interface EAitisiAppProps {
   appRole?: 'landing' | 'teacher' | 'admin';
@@ -43,34 +44,7 @@ export default function App({
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [adminPasswordError, setAdminPasswordError] = useState('');
   const [logs, setLogs] = useState<SqlAuditLog[]>([]);
-  const [dbConfig, setDbConfig] = useState<MysqlConfig>(() => {
-    try {
-      const saved = localStorage.getItem('ngrok_db_config');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          mode: 'external',
-          host: parsed.host || '2.tcp.eu.ngrok.io',
-          port: Number(parsed.port) || 16641,
-          user: parsed.user || 'plinetamag',
-          password: parsed.password || 'pl!n3tAmag',
-          database: parsed.database || 'e_aitisi',
-          isConnected: true,
-          activeConnectionMessage: 'Σύνδεση στη βάση δεδομένων MySQL (ngrok)...'
-        };
-      }
-    } catch (e) {}
-    return {
-      mode: 'external',
-      host: '2.tcp.eu.ngrok.io',
-      port: 16641,
-      user: 'plinetamag',
-      password: 'pl!n3tAmag',
-      database: 'e_aitisi',
-      isConnected: true,
-      activeConnectionMessage: 'Σύνδεση στη βάση δεδομένων MySQL (ngrok)...'
-    };
-  });
+  const [dbConfig, setDbConfig] = useState<MysqlConfig>(() => getResolvedDbConfig());
 
   const [isConnectOpen, setIsConnectOpen] = useState(false);
   const [loading, setLoading] = useState(true);

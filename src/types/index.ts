@@ -1,11 +1,15 @@
 export type AppId = 'hub' | 'aitisi' | 'programmatismos' | 'axiologisi';
 
 export interface DbConfig {
+  mode?: 'embedded' | 'external';
   host: string;
   port: number;
   user: string;
+  password?: string;
   database: string;
   connected: boolean;
+  isConnected?: boolean;
+  activeConnectionMessage?: string;
   tablePrefix?: string;
 }
 

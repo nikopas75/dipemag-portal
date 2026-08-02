@@ -31,6 +31,8 @@ const ModuleFallback = ({ title }: { title: string }) => (
   </div>
 );
 
+import { getResolvedDbConfig, LOCALSTORAGE_KEY } from './config/dbDefaults';
+
 export default function App() {
   const [activeApp, setActiveApp] = useState<AppId>('hub');
   const [aitisiRole, setAitisiRole] = useState<'landing' | 'teacher' | 'admin'>('landing');
@@ -38,34 +40,7 @@ export default function App() {
   const [dbConfigs, setDbConfigs] = useState<Record<'aitisi' | 'programmatismos' | 'axiologisi', DbConfig>>(initialDbConfigs);
   const [dbStatuses, setDbStatuses] = useState<Record<string, { connected: boolean; host: string; database: string; message: string }>>({});
   const [isDbModalOpen, setIsDbModalOpen] = useState<boolean>(false);
-  const [currentConnectionConfig, setCurrentConnectionConfig] = useState<MysqlConfig>(() => {
-    try {
-      const saved = localStorage.getItem('ngrok_db_config');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          mode: 'external',
-          host: parsed.host || '2.tcp.eu.ngrok.io',
-          port: Number(parsed.port) || 16641,
-          user: parsed.user || 'plinetamag',
-          password: parsed.password !== undefined ? parsed.password : 'pl!n3tAmag',
-          database: parsed.database || 'e_aitisi',
-          isConnected: false,
-          activeConnectionMessage: 'Σύνδεση στη βάση δεδομένων MySQL...'
-        };
-      }
-    } catch (e) {}
-    return {
-      mode: 'external',
-      host: '2.tcp.eu.ngrok.io',
-      port: 16641,
-      user: 'plinetamag',
-      password: 'pl!n3tAmag',
-      database: 'e_aitisi',
-      isConnected: false,
-      activeConnectionMessage: 'Σύνδεση στη βάση δεδομένων MySQL...'
-    };
-  });
+  const [currentConnectionConfig, setCurrentConnectionConfig] = useState<MysqlConfig>(() => getResolvedDbConfig());
 
   const fetchDbStatuses = async () => {
     try {
@@ -111,24 +86,21 @@ export default function App() {
   useEffect(() => {
     const initConnection = async () => {
       try {
-        const saved = localStorage.getItem('ngrok_db_config');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          const payload = {
-            mode: 'external',
-            host: parsed.host || '2.tcp.eu.ngrok.io',
-            port: Number(parsed.port) || 16641,
-            user: parsed.user || 'plinetamag',
-            password: parsed.password !== undefined ? parsed.password : 'pl!n3tAmag',
-            database: parsed.database || 'e_aitisi'
-          };
+        const resolved = getResolvedDbConfig();
+        const payload = {
+          mode: 'external',
+          host: resolved.host,
+          port: resolved.port,
+          user: resolved.user,
+          password: resolved.password,
+          database: resolved.database
+        };
 
-          await fetch('/api/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        }
+        await fetch('/api/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
       } catch (e) {
         console.warn('Auto-connect initialization error:', e);
       }
@@ -155,13 +127,15 @@ export default function App() {
       const data = await res.json();
       if (data.success) {
         try {
-          localStorage.setItem('ngrok_db_config', JSON.stringify({
+          const configToSave = {
             host: newConfig.host,
             port: newConfig.port,
             user: newConfig.user,
             password: newConfig.password,
             database: newConfig.database
-          }));
+          };
+          localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(configToSave));
+          localStorage.setItem('ngrok_db_config', JSON.stringify(configToSave));
         } catch (e) {}
         await fetchDbStatuses();
         return true;

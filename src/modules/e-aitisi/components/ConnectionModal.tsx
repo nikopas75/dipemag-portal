@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Server, Cpu, Check, AlertCircle, RefreshCw, X, Terminal, Copy, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { MysqlConfig } from '../types';
+import { HARDCODED_DB_DEFAULTS } from '../../../config/dbDefaults';
 
 interface ConnectionModalProps {
   isOpen: boolean;
@@ -11,11 +12,11 @@ interface ConnectionModalProps {
 
 export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClose, config, onSaveConnection }) => {
   const [mode, setMode] = useState<'embedded' | 'external'>(config.mode === 'external' ? 'external' : 'external');
-  const [host, setHost] = useState(config.host || '2.tcp.eu.ngrok.io');
-  const [port, setPort] = useState(config.port || 16641);
-  const [user, setUser] = useState(config.user || 'plinetamag');
-  const [password, setPassword] = useState(config.password !== undefined ? config.password : 'pl!n3tAmag');
-  const [database, setDatabase] = useState(config.database || 'e_aitisi');
+  const [host, setHost] = useState(config.host || HARDCODED_DB_DEFAULTS.host);
+  const [port, setPort] = useState(config.port || HARDCODED_DB_DEFAULTS.port);
+  const [user, setUser] = useState(config.user || HARDCODED_DB_DEFAULTS.user);
+  const [password, setPassword] = useState(config.password !== undefined ? config.password : HARDCODED_DB_DEFAULTS.password);
+  const [database, setDatabase] = useState(config.database || HARDCODED_DB_DEFAULTS.database);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showTunnelHelper, setShowTunnelHelper] = useState(false);
@@ -24,11 +25,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
 
   React.useEffect(() => {
     if (isOpen) {
-      setHost(config.host || '2.tcp.eu.ngrok.io');
-      setPort(config.port || 16641);
-      setUser(config.user || 'plinetamag');
-      setPassword(config.password !== undefined ? config.password : 'pl!n3tAmag');
-      setDatabase(config.database || 'e_aitisi');
+      setHost(config.host || HARDCODED_DB_DEFAULTS.host);
+      setPort(config.port || HARDCODED_DB_DEFAULTS.port);
+      setUser(config.user || HARDCODED_DB_DEFAULTS.user);
+      setPassword(config.password !== undefined ? config.password : HARDCODED_DB_DEFAULTS.password);
+      setDatabase(config.database || HARDCODED_DB_DEFAULTS.database);
       setErrorMsg(null);
     }
   }, [isOpen, config]);
@@ -198,7 +199,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                     type="text"
                     value={host}
                     onChange={e => setHost(e.target.value)}
-                    placeholder="2.tcp.eu.ngrok.io"
+                    placeholder={HARDCODED_DB_DEFAULTS.host}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
                     required
                   />
@@ -209,7 +210,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                     type="number"
                     value={port}
                     onChange={e => setPort(Number(e.target.value))}
-                    placeholder="25015"
+                    placeholder="3306"
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
                     required
                   />

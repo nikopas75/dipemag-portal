@@ -1,26 +1,27 @@
 import { Teacher, Application, SchoolUnit, SchoolPlan, EvaluationCycle, TeacherEvaluation, DbConfig } from '../types';
+import { HARDCODED_DB_DEFAULTS } from '../config/dbDefaults';
 
 export const initialDbConfigs: Record<'aitisi' | 'programmatismos' | 'axiologisi', DbConfig> = {
   aitisi: {
-    host: '2.tcp.eu.ngrok.io',
-    port: 16641,
-    user: 'plinetamag',
-    database: 'e_aitisi',
+    host: HARDCODED_DB_DEFAULTS.host,
+    port: HARDCODED_DB_DEFAULTS.port,
+    user: HARDCODED_DB_DEFAULTS.user,
+    database: HARDCODED_DB_DEFAULTS.database,
     connected: false,
     tablePrefix: '',
   },
   programmatismos: {
-    host: '2.tcp.eu.ngrok.io',
-    port: 16641,
-    user: 'plinetamag',
+    host: HARDCODED_DB_DEFAULTS.host,
+    port: HARDCODED_DB_DEFAULTS.port,
+    user: HARDCODED_DB_DEFAULTS.user,
     database: 'programmatismos',
     connected: false,
     tablePrefix: '',
   },
   axiologisi: {
-    host: '2.tcp.eu.ngrok.io',
-    port: 16641,
-    user: 'plinetamag',
+    host: HARDCODED_DB_DEFAULTS.host,
+    port: HARDCODED_DB_DEFAULTS.port,
+    user: HARDCODED_DB_DEFAULTS.user,
     database: 'axiologisi',
     connected: false,
     tablePrefix: '',

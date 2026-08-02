@@ -26,6 +26,15 @@ function getAiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
+// Single Central Hardcoded Fallback for Target Database
+const TARGET_DB_HARDCODED_DEFAULTS = {
+  host: '10.2.49.42',
+  port: 3306,
+  user: 'plinetamag',
+  password: 'Fr9KC7$c4e',
+  database: 'e_aitisi'
+} as const;
+
 // Active MySQL connection pool (when in external mode)
 let externalPool: mysql.Pool | null = null;
 
@@ -156,11 +165,11 @@ async function getTargetTable(pool: mysql.Pool): Promise<string> {
 
 let dbConfig: MysqlConfig = {
   mode: 'external',
-  host: process.env.DB_HOST || 'localhost',
-  port: Number(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER || 'plinetamag',
-  password: process.env.DB_PASSWORD || 'pl!n3tAmag',
-  database: process.env.DB_AITISI_NAME || 'e_aitisi',
+  host: process.env.DB_HOST || TARGET_DB_HARDCODED_DEFAULTS.host,
+  port: Number(process.env.DB_PORT) || TARGET_DB_HARDCODED_DEFAULTS.port,
+  user: process.env.DB_USER || TARGET_DB_HARDCODED_DEFAULTS.user,
+  password: process.env.DB_PASSWORD || TARGET_DB_HARDCODED_DEFAULTS.password,
+  database: process.env.DB_AITISI_NAME || TARGET_DB_HARDCODED_DEFAULTS.database,
   isConnected: false,
   activeConnectionMessage: 'Έλεγχος σύνδεσης με τη βάση δεδομένων MySQL...'
 };
@@ -362,11 +371,11 @@ async function startServer() {
       }
       dbConfig = {
         mode: 'embedded',
-        host: process.env.DB_HOST || 'localhost',
-        port: Number(process.env.DB_PORT) || 3306,
-        user: process.env.DB_USER || 'plinetamag',
-        password: process.env.DB_PASSWORD || 'pl!n3tAmag',
-        database: process.env.DB_AITISI_NAME || 'e_aitisi',
+        host: process.env.DB_HOST || TARGET_DB_HARDCODED_DEFAULTS.host,
+        port: Number(process.env.DB_PORT) || TARGET_DB_HARDCODED_DEFAULTS.port,
+        user: process.env.DB_USER || TARGET_DB_HARDCODED_DEFAULTS.user,
+        password: process.env.DB_PASSWORD || TARGET_DB_HARDCODED_DEFAULTS.password,
+        database: process.env.DB_AITISI_NAME || TARGET_DB_HARDCODED_DEFAULTS.database,
         isConnected: true,
         activeConnectionMessage: 'Ενσωματωμένη Λειτουργία Sandbox (Προρυθμισμένα στοιχεία MySQL)'
       };
@@ -2398,11 +2407,11 @@ Records Sample: ${JSON.stringify(recordSummary)}`
   });
 
 async function autoConnectToNgrok() {
-  const defaultHost = process.env.DB_HOST || 'localhost';
-  const defaultPort = Number(process.env.DB_PORT) || 3306;
-  const defaultUser = process.env.DB_USER || 'plinetamag';
-  const defaultPass = process.env.DB_PASSWORD || 'pl!n3tAmag';
-  const defaultDatabase = process.env.DB_AITISI_NAME || 'e_aitisi';
+  const defaultHost = process.env.DB_HOST || TARGET_DB_HARDCODED_DEFAULTS.host;
+  const defaultPort = Number(process.env.DB_PORT) || TARGET_DB_HARDCODED_DEFAULTS.port;
+  const defaultUser = process.env.DB_USER || TARGET_DB_HARDCODED_DEFAULTS.user;
+  const defaultPass = process.env.DB_PASSWORD || TARGET_DB_HARDCODED_DEFAULTS.password;
+  const defaultDatabase = process.env.DB_AITISI_NAME || TARGET_DB_HARDCODED_DEFAULTS.database;
   try {
     console.log(`Auto-connecting to user's MySQL server: ${defaultHost}:${defaultPort}...`);
     const pool = mysql.createPool({
@@ -2431,7 +2440,7 @@ async function autoConnectToNgrok() {
     addAuditLog('System Boot', `AUTO-CONNECTED TO MYSQL SERVER (${defaultHost}:${defaultPort})`, 'CONNECT', 1, 0);
     console.log("Successfully auto-connected to external MySQL!");
   } catch (err: any) {
-    console.warn("Auto-connect to ngrok tunnel failed or not reachable yet:", err.message);
+    console.warn("Auto-connect to MySQL server failed or not reachable yet:", err.message);
     if (externalPool) {
       try { await externalPool.end(); } catch (e) {}
       externalPool = null;
@@ -2444,7 +2453,7 @@ async function autoConnectToNgrok() {
       password: defaultPass,
       database: 'e_aitisi',
       isConnected: false,
-      activeConnectionMessage: `Αποτυχία σύνδεσης στο ngrok tunnel (${defaultHost}:${defaultPort}).`
+      activeConnectionMessage: `Αποτυχία σύνδεσης στον MySQL διακομιστή (${defaultHost}:${defaultPort}).`
     };
   }
 }
