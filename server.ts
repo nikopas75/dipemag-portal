@@ -2465,7 +2465,7 @@ async function autoConnectToNgrok() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`MySQL DataPortal Studio server running on port ${PORT}`);
+    console.log(`ΔΠΕ Μαγνησίας - Κεντρική Πύλη Εφαρμογών (DIPEMAG Portal) server running on port ${PORT}`);
     autoConnectToNgrok();
   });
 }
