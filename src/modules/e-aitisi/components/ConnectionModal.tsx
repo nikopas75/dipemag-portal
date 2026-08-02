@@ -77,7 +77,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
     if (success) {
       onClose();
     } else {
-      setErrorMsg('Αποτυχία σύνδεσης στον MySQL Server. Ελέγξτε αν είναι ενεργό το ngrok tunnel και οι κωδικοί.');
+      setErrorMsg('Αποτυχία σύνδεσης στον MySQL Server. Ελέγξτε τις ρυθμίσεις του διακομιστή, το δίκτυο και τους κωδικούς πρόσβασης.');
     }
   };
 
@@ -92,7 +92,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
               <Server className="w-4 h-4 text-blue-400" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white leading-tight">Σύνδεση MySQL / ngrok Tunnel</h3>
+              <h3 className="text-sm font-bold text-white leading-tight">Σύνδεση MySQL Server</h3>
               <p className="text-[11px] text-slate-400">Ρύθμιση παραμέτρων διακομιστή</p>
             </div>
           </div>

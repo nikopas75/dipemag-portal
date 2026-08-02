@@ -1,6 +1,12 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Route /api/ requests to api.php for PHP hosting environments
+  RewriteRule ^api/(.*)$ api.php?route=$1 [QSA,L]
+  RewriteRule ^api$ api.php [QSA,L]
+
+  # SPA fallback
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
