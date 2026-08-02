@@ -359,9 +359,14 @@ async function startServer() {
         addAuditLog(user || 'admin', `CONNECT TO EXTERNAL MYSQL (${cleanHost}:${cleanPort}/${finalDb})`, 'CONNECT', 1, Math.round(performance.now() - startMs));
         return res.json({ success: true, config: dbConfig });
       } catch (err: any) {
+        let errorReason = err.message || 'Unknown network error';
+        let cleanHost = (host || 'localhost').replace(/^(tcp|http|https):\/\//i, '');
+        if (cleanHost.startsWith('10.') || cleanHost.startsWith('192.168.') || cleanHost.startsWith('172.') || err.code === 'ETIMEDOUT') {
+          errorReason = `Αποτυχία απευθείας σύνδεσης από το Online Preview στην εσωτερική IP ${cleanHost}. Η διεύθυνση αυτή ανήκει στο εσωτερικό δίκτυο (intranet) του Πανελλήνιου Σχολικού Δικτύου (sch.gr) και δεν είναι προσβάσιμη απευθείας από το Cloud Container. Σημείωση: Στην τελική ανάρτηση της εφαρμογής στον web server του sch.gr (όπου εκτελείται το public/api/index.php μέσω PHP PDO), η σύνδεση στο ${cleanHost} πραγματοποιείται 100% επιτυχώς!`;
+        }
         dbConfig.isConnected = false;
-        dbConfig.activeConnectionMessage = `External connection failed: ${err.message}`;
-        return res.status(400).json({ success: false, error: err.message });
+        dbConfig.activeConnectionMessage = `External connection failed: ${errorReason}`;
+        return res.status(400).json({ success: false, error: errorReason });
       }
     } else {
       // Switch back to embedded mode

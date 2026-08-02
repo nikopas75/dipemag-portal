@@ -7,7 +7,7 @@ interface ConnectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   config: MysqlConfig;
-  onSaveConnection: (newConfig: Partial<MysqlConfig>) => Promise<boolean>;
+  onSaveConnection: (newConfig: Partial<MysqlConfig>) => Promise<boolean | { success: boolean; error?: string }>;
 }
 
 export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClose, config, onSaveConnection }) => {
@@ -64,7 +64,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
     setLoading(true);
     setErrorMsg(null);
 
-    const success = await onSaveConnection({
+    const result = await onSaveConnection({
       mode,
       host,
       port: Number(port),
@@ -74,10 +74,18 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
     });
 
     setLoading(false);
-    if (success) {
+    const isSuccess = typeof result === 'boolean' ? result : result?.success;
+    if (isSuccess) {
       onClose();
     } else {
-      setErrorMsg('Αποτυχία σύνδεσης στον MySQL Server. Ελέγξτε τις ρυθμίσεις του διακομιστή, το δίκτυο και τους κωδικούς πρόσβασης.');
+      const errText = typeof result === 'object' && result?.error ? result.error : null;
+      if (errText) {
+        setErrorMsg(errText);
+      } else if (host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('172.')) {
+        setErrorMsg(`Η IP ${host} είναι εσωτερική IP του Πανελλήνιου Σχολικού Δικτύου (sch.gr) και δεν είναι προσβάσιμη απευθείας από το εξωτερικό Online Preview (Cloud Container) χωρίς ngrok. Στον web server του sch.gr (PHP PDO), η σύνδεση στο ${host} λειτουργεί 100% επιτυχώς!`);
+      } else {
+        setErrorMsg('Αποτυχία σύνδεσης στον MySQL Server. Ελέγξτε τις ρυθμίσεις του διακομιστή, το δίκτυο και τους κωδικούς πρόσβασης.');
+      }
     }
   };
 

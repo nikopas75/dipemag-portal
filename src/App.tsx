@@ -117,7 +117,7 @@ export default function App() {
     });
   };
 
-  const handleSaveGlobalConnection = async (newConfig: Partial<MysqlConfig>): Promise<boolean> => {
+  const handleSaveGlobalConnection = async (newConfig: Partial<MysqlConfig>): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch('/api/connect', {
         method: 'POST',
@@ -138,11 +138,11 @@ export default function App() {
           localStorage.setItem('ngrok_db_config', JSON.stringify(configToSave));
         } catch (e) {}
         await fetchDbStatuses();
-        return true;
+        return { success: true };
       }
-      return false;
-    } catch (err) {
-      return false;
+      return { success: false, error: data.error || 'Αποτυχία σύνδεσης στον MySQL Server.' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Αποτυχία σύνδεσης στον MySQL Server.' };
     }
   };
 

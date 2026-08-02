@@ -2,11 +2,11 @@
   RewriteEngine On
   RewriteBase /
 
-  # Route /api/ requests to api.php for PHP hosting environments
-  RewriteRule ^api/(.*)$ api.php?route=$1 [QSA,L]
-  RewriteRule ^api$ api.php [QSA,L]
+  # Route /api/ requests to /api/index.php for PHP web servers (sch.gr)
+  RewriteRule ^api/(.*)$ api/index.php?route=$1 [QSA,L]
+  RewriteRule ^api$ api/index.php [QSA,L]
 
-  # SPA fallback
+  # SPA fallback to index.html
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
