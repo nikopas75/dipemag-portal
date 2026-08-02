@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { EvaluationCycle, TeacherEvaluation, DbConfig } from '../types';
-import { sampleEvaluationCycles, sampleTeacherEvaluations } from '../data/mockData';
+import { EvaluationCycle, TeacherEvaluation, DbConfig } from '../../types';
+import { sampleEvaluationCycles, sampleTeacherEvaluations } from '../../data/mockData';
 import {
   ClipboardCheck,
   Shield,

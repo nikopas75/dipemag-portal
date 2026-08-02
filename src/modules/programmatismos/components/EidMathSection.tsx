@@ -1,5 +1,5 @@
 import React from 'react';
-import { EidMathData } from './types';
+import { EidMathData } from '../types';
 import { Table } from 'lucide-react';
 
 interface Props {

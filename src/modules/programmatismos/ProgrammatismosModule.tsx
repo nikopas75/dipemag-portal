@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DbConfig } from '../types';
+import { DbConfig } from '../../types';
 import {
   Building,
   CheckCircle,
@@ -12,12 +12,12 @@ import {
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-import { DimMathData, NipMathData, EidNipMathData, EidMathData, DimEkpData, EidEkpData, SchoolCategory, SchoolUser, AdminRecord } from './programmatismos/types';
-import { exportProgrammatismosPdf } from './programmatismos/pdfExport';
-import { defaultDimMathData, defaultNipMathData, defaultEidNipMathData, defaultEidMathData, defaultDimEkpData, defaultEidEkpData, getSchoolTypeLabel } from './programmatismos/utils';
-import { ProgrammatismosLanding } from './programmatismos/ProgrammatismosLanding';
-import { ProgrammatismosDirectorView } from './programmatismos/ProgrammatismosDirectorView';
-import { ProgrammatismosAdminView } from './programmatismos/ProgrammatismosAdminView';
+import { DimMathData, NipMathData, EidNipMathData, EidMathData, DimEkpData, EidEkpData, SchoolCategory, SchoolUser, AdminRecord } from './types';
+import { exportProgrammatismosPdf } from './pdfExport';
+import { defaultDimMathData, defaultNipMathData, defaultEidNipMathData, defaultEidMathData, defaultDimEkpData, defaultEidEkpData, getSchoolTypeLabel } from './utils';
+import { ProgrammatismosLanding } from './components/ProgrammatismosLanding';
+import { ProgrammatismosDirectorView } from './components/ProgrammatismosDirectorView';
+import { ProgrammatismosAdminView } from './components/ProgrammatismosAdminView';
 
 interface ProgrammatismosModuleProps {
   dbConfig?: DbConfig;

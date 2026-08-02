@@ -6,7 +6,6 @@
 import React, { useState, useEffect } from 'react';
 import { ConnectionModal } from './components/ConnectionModal';
 import { SqlConsoleSection } from './components/SqlConsoleSection';
-import { AiAssistantSection } from './components/AiAssistantSection';
 import { PersonnelPortalSection } from './components/PersonnelPortalSection';
 import { SqlAuditLog, MysqlConfig, SqlQueryResult } from './types';
 import { Database, ShieldCheck, UserCheck, ArrowRight, GraduationCap, Key, AlertCircle, X, Terminal, Sparkles, Users, Server, LogOut } from 'lucide-react';
@@ -14,8 +13,8 @@ import { Database, ShieldCheck, UserCheck, ArrowRight, GraduationCap, Key, Alert
 export interface EAitisiAppProps {
   appRole?: 'landing' | 'teacher' | 'admin';
   setAppRole?: (role: 'landing' | 'teacher' | 'admin') => void;
-  adminSubTab?: 'portal' | 'sql' | 'ai';
-  setAdminSubTab?: (tab: 'portal' | 'sql' | 'ai') => void;
+  adminSubTab?: 'portal' | 'sql';
+  setAdminSubTab?: (tab: 'portal' | 'sql') => void;
   onOpenDbModal?: () => void;
 }
 
@@ -332,13 +331,6 @@ export default function App({
                 currentUser={virtualAdminUser}
                 onExecuteQuery={handleExecuteQuery}
                 onRefreshLogs={refreshData}
-              />
-            )}
-
-            {adminSubTab === 'ai' && (
-              <AiAssistantSection
-                currentUser={virtualAdminUser}
-                records={[]}
               />
             )}
           </div>

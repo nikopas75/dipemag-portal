@@ -1,5 +1,5 @@
 import React from 'react';
-import { DimMathData } from './types';
+import { DimMathData } from '../types';
 import { Table } from 'lucide-react';
 
 interface Props {

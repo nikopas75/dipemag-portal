@@ -1,5 +1,5 @@
 import React from 'react';
-import { EidEkpData, EidMathData } from './types';
+import { EidEkpData, EidMathData } from '../types';
 import { Shield, Info, Building2, AlertTriangle } from 'lucide-react';
 
 interface Props {

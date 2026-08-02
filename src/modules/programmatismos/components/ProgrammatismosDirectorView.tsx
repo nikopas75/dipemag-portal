@@ -7,7 +7,7 @@ import {
   GraduationCap,
   Clock
 } from 'lucide-react';
-import { SchoolCategory, SchoolUser, DimMathData, NipMathData, EidMathData, DimEkpData, EidEkpData } from './types';
+import { SchoolCategory, SchoolUser, DimMathData, NipMathData, EidMathData, DimEkpData, EidEkpData } from '../types';
 import { NipMathSection } from './NipMathSection';
 import { EidMathSection } from './EidMathSection';
 import { DimMathSection } from './DimMathSection';

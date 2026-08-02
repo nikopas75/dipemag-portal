@@ -1,13 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AppId, DbConfig } from './types';
 import { initialDbConfigs } from './data/mockData';
 import { Header } from './components/Header';
 import { SuiteHub } from './components/SuiteHub';
-import EAitisiApp from './modules/e-aitisi/App';
-import { ProgrammatismosModule } from './components/ProgrammatismosModule';
-import { AxiologisiModule } from './components/AxiologisiModule';
 import { ConnectionModal } from './modules/e-aitisi/components/ConnectionModal';
 import { MysqlConfig } from './modules/e-aitisi/types';
+
+// Dynamic lazy imports for standalone modules
+const EAitisiApp = lazy(() => import('./modules/e-aitisi/App'));
+const ProgrammatismosModule = lazy(() =>
+  import('./modules/programmatismos/ProgrammatismosModule').then((m) => ({
+    default: m.ProgrammatismosModule,
+  }))
+);
+const AxiologisiModule = lazy(() =>
+  import('./modules/axiologisi/AxiologisiModule').then((m) => ({
+    default: m.AxiologisiModule,
+  }))
+);
+
+const ModuleFallback = ({ title }: { title: string }) => (
+  <div className="min-h-[500px] bg-slate-900/80 rounded-3xl border border-slate-800 p-12 flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-200">
+    <div className="relative flex items-center justify-center">
+      <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-blue-500 animate-spin" />
+    </div>
+    <div className="text-center space-y-1">
+      <p className="text-sm font-semibold text-slate-200">Φόρτωση {title}...</p>
+      <p className="text-xs text-slate-500">Προετοιμασία περιβάλλοντος εφαρμογής</p>
+    </div>
+  </div>
+);
 
 export default function App() {
   const [activeApp, setActiveApp] = useState<AppId>('hub');
@@ -185,29 +207,35 @@ export default function App() {
         )}
 
         {activeApp === 'aitisi' && (
-          <div className="rounded-3xl shadow-xl">
-            <EAitisiApp
-              appRole={aitisiRole}
-              setAppRole={setAitisiRole}
-              adminSubTab={aitisiAdminSubTab}
-              setAdminSubTab={setAitisiAdminSubTab}
-              onOpenDbModal={() => setIsDbModalOpen(true)}
-            />
-          </div>
+          <Suspense fallback={<ModuleFallback title="Η-Αίτηση" />}>
+            <div className="rounded-3xl shadow-xl">
+              <EAitisiApp
+                appRole={aitisiRole}
+                setAppRole={setAitisiRole}
+                adminSubTab={aitisiAdminSubTab}
+                setAdminSubTab={setAitisiAdminSubTab}
+                onOpenDbModal={() => setIsDbModalOpen(true)}
+              />
+            </div>
+          </Suspense>
         )}
 
         {activeApp === 'programmatismos' && (
-          <ProgrammatismosModule
-            dbConfig={dbConfigs.programmatismos}
-            onUpdateDbConfig={(cfg) => handleUpdateConfig('programmatismos', cfg)}
-          />
+          <Suspense fallback={<ModuleFallback title="Προγραμματισμός Σχολικών Μονάδων" />}>
+            <ProgrammatismosModule
+              dbConfig={dbConfigs.programmatismos}
+              onUpdateDbConfig={(cfg) => handleUpdateConfig('programmatismos', cfg)}
+            />
+          </Suspense>
         )}
 
         {activeApp === 'axiologisi' && (
-          <AxiologisiModule
-            dbConfig={dbConfigs.axiologisi}
-            onUpdateDbConfig={(cfg) => handleUpdateConfig('axiologisi', cfg)}
-          />
+          <Suspense fallback={<ModuleFallback title="Αξιολόγηση Εκπαιδευτικών" />}>
+            <AxiologisiModule
+              dbConfig={dbConfigs.axiologisi}
+              onUpdateDbConfig={(cfg) => handleUpdateConfig('axiologisi', cfg)}
+            />
+          </Suspense>
         )}
       </main>
 

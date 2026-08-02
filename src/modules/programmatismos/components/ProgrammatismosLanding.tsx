@@ -14,7 +14,7 @@ import {
   EyeOff,
   AlertCircle
 } from 'lucide-react';
-import { SchoolCategory, SchoolUser } from './types';
+import { SchoolCategory, SchoolUser } from '../types';
 
 interface ProgrammatismosLandingProps {
   appRole: 'landing' | 'director' | 'admin';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { NipMathData, EidNipMathData, SchoolCategory } from './types';
+import { NipMathData, EidNipMathData, SchoolCategory } from '../types';
 import { Sparkles, Shield, UserCheck } from 'lucide-react';
 
 interface Props {

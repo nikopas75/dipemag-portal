@@ -23,8 +23,8 @@ import {
   RotateCcw,
   AlertTriangle
 } from 'lucide-react';
-import { AdminRecord } from './types';
-import { getSchoolTypeLabel } from './utils';
+import { AdminRecord } from '../types';
+import { getSchoolTypeLabel } from '../utils';
 
 interface ProgrammatismosAdminViewProps {
   // Modes & Navigation

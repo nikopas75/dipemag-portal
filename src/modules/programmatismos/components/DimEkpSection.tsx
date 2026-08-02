@@ -1,5 +1,5 @@
 import React from 'react';
-import { DimEkpData, DimMathData } from './types';
+import { DimEkpData, DimMathData } from '../types';
 import { Users, Info, Building2, AlertTriangle } from 'lucide-react';
 
 interface Props {
