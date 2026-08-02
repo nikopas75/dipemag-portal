@@ -33,6 +33,47 @@ const ModuleFallback = ({ title }: { title: string }) => (
 
 import { getResolvedDbConfig, LOCALSTORAGE_KEY } from './config/dbDefaults';
 
+// Helper for robust API calls across dev servers, domain roots, and Apache subfolders
+async function robustApiFetch(path: string, options?: RequestInit) {
+  const cleanRouteName = path.replace(/^\/api\//, '').replace(/^api\//, '');
+  const candidateUrls = [
+    path, // 1. Absolute path: /api/...
+    path.startsWith('/') ? path.substring(1) : path, // 2. Relative path: api/...
+    `api/index.php?route=${cleanRouteName}`, // 3. Direct PHP query fallback: api/index.php?route=...
+    `./api/index.php?route=${cleanRouteName}` // 4. Subfolder fallback: ./api/index.php?route=...
+  ];
+
+  let lastErrorText = '';
+  let lastStatus = 404;
+  let lastStatusText = 'Not Found';
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, options);
+      lastStatus = res.status;
+      lastStatusText = res.statusText;
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        if (json && (json.success !== undefined || json.mode !== undefined || json.isConnected !== undefined || res.ok)) {
+          return { ok: true, data: json, status: res.status, rawText: text, urlUsed: url };
+        }
+      } catch (e) {
+        lastErrorText = text;
+      }
+    } catch (e: any) {
+      lastErrorText = e.message || String(e);
+    }
+  }
+
+  return {
+    ok: false,
+    status: lastStatus,
+    statusText: lastStatusText,
+    rawText: lastErrorText
+  };
+}
+
 export default function App() {
   const [activeApp, setActiveApp] = useState<AppId>('hub');
   const [aitisiRole, setAitisiRole] = useState<'landing' | 'teacher' | 'admin'>('landing');
@@ -44,9 +85,9 @@ export default function App() {
 
   const fetchDbStatuses = async () => {
     try {
-      const res = await fetch('/api/status');
-      const data = await res.json();
-      if (data && data.isConnected !== undefined) {
+      const res = await robustApiFetch('/api/status');
+      if (res.ok && res.data && res.data.isConnected !== undefined) {
+        const data = res.data;
         setDbStatuses({
           aitisi: {
             connected: data.isConnected,
@@ -96,7 +137,7 @@ export default function App() {
           database: resolved.database
         };
 
-        await fetch('/api/connect', {
+        await robustApiFetch('/api/connect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -119,22 +160,13 @@ export default function App() {
 
   const handleSaveGlobalConnection = async (newConfig: Partial<MysqlConfig>): Promise<{ success: boolean; error?: string }> => {
     try {
-      const res = await fetch('/api/connect', {
+      const result = await robustApiFetch('/api/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newConfig)
       });
-      const rawText = await res.text();
-      let data: any = null;
-      try {
-        data = JSON.parse(rawText);
-      } catch (e) {
-        return {
-          success: false,
-          error: `Σφάλμα Απόκρισης Διακομιστή (HTTP ${res.status} ${res.statusText}):\nΗ απόκριση δεν ήταν σε μορφή JSON.\n\nΠεριεχόμενο απόκρισης:\n${rawText.slice(0, 1000)}`
-        };
-      }
-      if (data && data.success) {
+
+      if (result.ok && result.data && result.data.success) {
         try {
           const configToSave = {
             host: newConfig.host,
@@ -149,7 +181,16 @@ export default function App() {
         await fetchDbStatuses();
         return { success: true };
       }
-      return { success: false, error: data?.error || data?.message || 'Αποτυχία σύνδεσης στον MySQL Server.' };
+
+      if (result.data && result.data.error) {
+        return { success: false, error: result.data.error };
+      }
+
+      const sampleRaw = result.rawText ? result.rawText.slice(0, 1000) : 'Δεν λήφθηκαν δεδομένα.';
+      return {
+        success: false,
+        error: `Σφάλμα Απόκρισης Διακομιστή (HTTP ${result.status} ${result.statusText}):\nΗ απόκριση δεν ήταν σε μορφή JSON.\n\nΠεριεχόμενο απόκρισης:\n${sampleRaw}`
+      };
     } catch (err: any) {
       return { success: false, error: err.message || 'Αποτυχία σύνδεσης στον MySQL Server.' };
     }

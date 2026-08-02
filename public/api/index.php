@@ -39,10 +39,19 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // Export route pattern after /api
 $route = $requestUri;
-if (strpos($route, '/api') !== false) {
+if (isset($_GET['route']) && !empty($_GET['route'])) {
+    $rParam = $_GET['route'];
+    $route = (strpos($rParam, '/api') === 0) ? $rParam : '/api/' . ltrim($rParam, '/');
+} else if (strpos($route, '/api') !== false) {
     $route = substr($route, strpos($route, '/api'));
 }
 $routeClean = trim($route, '/');
+
+// Fallback if accessed as /api/index.php without route param
+if ($routeClean === 'api/index.php' || $routeClean === 'index.php') {
+    $route = '/api/status';
+    $routeClean = 'status';
+}
 
 $inputRaw = file_get_contents('php://input');
 $input = json_decode($inputRaw, true) ?? [];
