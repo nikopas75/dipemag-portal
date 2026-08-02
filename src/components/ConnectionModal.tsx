@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Server, Cpu, Check, AlertCircle, RefreshCw, X, Terminal, Copy, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
-import { MysqlConfig } from '../types';
-import { HARDCODED_DB_DEFAULTS } from '../../../config/dbDefaults';
+import { MysqlConfig } from '../modules/e-aitisi/types';
+import { HARDCODED_DB_DEFAULTS } from '../config/dbDefaults';
 
 interface ConnectionModalProps {
   isOpen: boolean;
@@ -22,6 +22,15 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
   const [showTunnelHelper, setShowTunnelHelper] = useState(false);
   const [tunnelInput, setTunnelInput] = useState('');
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
+  const [copiedError, setCopiedError] = useState(false);
+
+  const handleCopyError = () => {
+    if (errorMsg) {
+      navigator.clipboard.writeText(errorMsg);
+      setCopiedError(true);
+      setTimeout(() => setCopiedError(false), 2000);
+    }
+  };
 
   React.useEffect(() => {
     if (isOpen) {
@@ -272,9 +281,24 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
           )}
 
           {errorMsg && (
-            <div className="flex items-start space-x-2 p-2.5 rounded-lg bg-red-950/80 border border-red-800 text-[11px] text-red-300">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
+            <div className="p-3 rounded-xl bg-red-950/90 border border-red-800 text-[11px] text-red-200 space-y-1.5 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5 font-bold text-red-300">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span>Λεπτομέρειες Σφάλματος / Απόκρισης:</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyError}
+                  className="flex items-center gap-1 text-[10px] bg-red-900/60 hover:bg-red-800 border border-red-700/60 text-red-100 px-2 py-0.5 rounded transition-colors"
+                >
+                  {copiedError ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedError ? 'Αντιγράφηκε!' : 'Αντιγραφή Σφάλματος'}</span>
+                </button>
+              </div>
+              <pre className="font-mono text-[11px] leading-relaxed whitespace-pre-wrap max-h-44 overflow-y-auto bg-slate-950/80 p-2.5 rounded-lg border border-red-900/50 select-text text-red-300">
+                {errorMsg}
+              </pre>
             </div>
           )}
 

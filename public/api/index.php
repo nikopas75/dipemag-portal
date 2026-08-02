@@ -114,8 +114,14 @@ function ensureEaitisiSchema($pdo) {
     } catch (\Exception $e) {}
 }
 
-$pdo = getDbConnection();
-ensureEaitisiSchema($pdo);
+$pdo = null;
+$dbInitError = null;
+try {
+    $pdo = getDbConnection();
+    ensureEaitisiSchema($pdo);
+} catch (\Exception $e) {
+    $dbInitError = $e->getMessage();
+}
 
 // -------------------------------------------------------------
 // CORE GENERAL ROUTES
@@ -124,6 +130,10 @@ ensureEaitisiSchema($pdo);
 // 1. GET /api/status
 if ($route === '/api/status' || $routeClean === 'status' || $routeClean === '') {
     try {
+        if (!$pdo) {
+            $pdo = getDbConnection();
+            ensureEaitisiSchema($pdo);
+        }
         $stmt = $pdo->query("SELECT COUNT(*) FROM teachers");
         $totalTeachers = $stmt ? (int)$stmt->fetchColumn() : 0;
         sendJson([
@@ -141,7 +151,7 @@ if ($route === '/api/status' || $routeClean === 'status' || $routeClean === '') 
             ]
         ]);
     } catch (\Exception $e) {
-        sendJson(['mode' => 'external', 'isConnected' => false, 'error' => $e->getMessage()], 500);
+        sendJson(['mode' => 'external', 'isConnected' => false, 'error' => 'Αποτυχία αρχικοποίησης PDO: ' . $e->getMessage()], 200);
     }
 }
 

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { ConnectionModal } from './components/ConnectionModal';
+import { ConnectionModal } from '../../components/ConnectionModal';
 import { SqlConsoleSection } from './components/SqlConsoleSection';
 import { PersonnelPortalSection } from './components/PersonnelPortalSection';
 import { SqlAuditLog, MysqlConfig, SqlQueryResult } from './types';

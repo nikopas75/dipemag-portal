@@ -3,7 +3,7 @@ import { AppId, DbConfig } from './types';
 import { initialDbConfigs } from './data/mockData';
 import { Header } from './components/Header';
 import { SuiteHub } from './components/SuiteHub';
-import { ConnectionModal } from './modules/e-aitisi/components/ConnectionModal';
+import { ConnectionModal } from './components/ConnectionModal';
 import { MysqlConfig } from './modules/e-aitisi/types';
 
 // Dynamic lazy imports for standalone modules
@@ -124,8 +124,17 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newConfig)
       });
-      const data = await res.json();
-      if (data.success) {
+      const rawText = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        return {
+          success: false,
+          error: `Σφάλμα Απόκρισης Διακομιστή (HTTP ${res.status} ${res.statusText}):\nΗ απόκριση δεν ήταν σε μορφή JSON.\n\nΠεριεχόμενο απόκρισης:\n${rawText.slice(0, 1000)}`
+        };
+      }
+      if (data && data.success) {
         try {
           const configToSave = {
             host: newConfig.host,
@@ -140,7 +149,7 @@ export default function App() {
         await fetchDbStatuses();
         return { success: true };
       }
-      return { success: false, error: data.error || 'Αποτυχία σύνδεσης στον MySQL Server.' };
+      return { success: false, error: data?.error || data?.message || 'Αποτυχία σύνδεσης στον MySQL Server.' };
     } catch (err: any) {
       return { success: false, error: err.message || 'Αποτυχία σύνδεσης στον MySQL Server.' };
     }
