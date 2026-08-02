@@ -1,0 +1,6 @@
+{
+  "name": "Κεντρική Πύλη Εφαρμογών ΔΠΕ Μαγνησίας",
+  "description": "Κεντρική Πύλη Εφαρμογών ΔΠΕ Μαγνησίας (Η-Αίτηση, Προγραμματισμός Σχολικών Μονάδων, Αξιολόγηση)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
