@@ -211,7 +211,7 @@ if ($route === '/api/connect' || $routeClean === 'connect') {
                 'isConnected' => true
             ]
         ]);
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         sendJson(['success' => false, 'error' => 'Αποτυχία σύνδεσης: ' . $e->getMessage()], 400);
     }
 }
