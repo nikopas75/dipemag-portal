@@ -545,18 +545,88 @@ async function startServer() {
 
     // If external MySQL mode is active, run on external database!
     if (dbConfig.mode === 'external' && externalPool) {
+      let conn;
       try {
-        const [rows, fields] = await externalPool.query(cleanQuery);
+        conn = await externalPool.getConnection();
+        let sqlToRun = cleanQuery;
+        let targetDb = 'e_aitisi';
+
+        // 1. If query starts with USE <dbname>;
+        if (sqlToRun.toUpperCase().startsWith('USE ')) {
+          const semiIndex = sqlToRun.indexOf(';');
+          if (semiIndex !== -1) {
+            const dbStatement = sqlToRun.substring(0, semiIndex + 1);
+            sqlToRun = sqlToRun.substring(semiIndex + 1).trim();
+            const dbNameMatch = dbStatement.match(/USE\s+[`"']?([a-zA-Z0-9_\-]+)[`"']?/i);
+            if (dbNameMatch && dbNameMatch[1]) {
+              targetDb = dbNameMatch[1];
+            }
+          }
+        }
+
+        if (targetDb) {
+          try {
+            await conn.query(`USE \`${targetDb}\`;`);
+          } catch (e) {
+            // Ignore if initial database doesn't exist yet
+          }
+        }
+
+        if (!sqlToRun) {
+          return res.json({ columns: ['result'], rows: [{ result: `Switched database context to ${targetDb}` }], affectedRows: 0, executionTimeMs: Math.round(performance.now() - startMs) });
+        }
+
+        let rows: any;
+        let fields: any;
+        try {
+          [rows, fields] = await conn.query(sqlToRun);
+        } catch (execErr: any) {
+          // Dynamic Auto-Resolution: If table was not found in current schema, search information_schema across all schemas
+          if (execErr.message && (execErr.message.includes("doesn't exist") || execErr.code === 'ER_NO_SUCH_TABLE')) {
+            // Extract potential table names from query (words following FROM, JOIN, UPDATE, INTO, or from error string)
+            const matches = sqlToRun.match(/(?:FROM|JOIN|UPDATE|INTO)\s+[`"']?([a-zA-Z0-9_\-]+)[`"']?/gi) || [];
+            const extractedTables = matches.map(m => m.replace(/(?:FROM|JOIN|UPDATE|INTO)\s+[`"']?/i, '').replace(/[`"']/g, '').trim());
+            
+            // Also check error message e.g. "Table 'dbname.tablename' doesn't exist"
+            const errTableMatch = execErr.message.match(/Table\s+'[^']+\.([^']+)'\s+doesn't exist/i);
+            if (errTableMatch && errTableMatch[1]) {
+              extractedTables.unshift(errTableMatch[1]);
+            }
+
+            let resolvedSchema: string | null = null;
+            for (const tbl of extractedTables) {
+              if (!tbl) continue;
+              const [schemaRows]: any = await conn.query(
+                `SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_NAME = ? AND TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys') LIMIT 1`,
+                [tbl]
+              );
+              if (Array.isArray(schemaRows) && schemaRows.length > 0 && schemaRows[0].TABLE_SCHEMA) {
+                resolvedSchema = schemaRows[0].TABLE_SCHEMA;
+                break;
+              }
+            }
+
+            if (resolvedSchema) {
+              await conn.query(`USE \`${resolvedSchema}\`;`);
+              [rows, fields] = await conn.query(sqlToRun);
+            } else {
+              throw execErr;
+            }
+          } else {
+            throw execErr;
+          }
+        }
+
         const timeMs = Math.round(performance.now() - startMs);
         
         let action: SqlAuditLog['actionType'] = 'SELECT';
-        const upper = cleanQuery.toUpperCase();
+        const upper = sqlToRun.toUpperCase();
         if (upper.startsWith('INSERT')) action = 'INSERT';
         else if (upper.startsWith('UPDATE')) action = 'UPDATE';
         else if (upper.startsWith('DELETE')) action = 'DELETE';
 
         const rowList = Array.isArray(rows) ? rows : [];
-        const colNames = fields && Array.isArray(fields) ? fields.map(f => f.name) : Object.keys(rowList[0] || {});
+        const colNames = fields && Array.isArray(fields) ? fields.map((f: any) => f.name) : Object.keys(rowList[0] || {});
         
         addAuditLog(username, cleanQuery, action, rowList.length, timeMs);
 
@@ -568,6 +638,8 @@ async function startServer() {
         });
       } catch (err: any) {
         return res.status(400).json({ error: err.message, executionTimeMs: Math.round(performance.now() - startMs) });
+      } finally {
+        if (conn) conn.release();
       }
     }
 

@@ -796,7 +796,14 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: sqlQuery })
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        setSqlError('Σφάλμα απόκρισης διακομιστή (Μη έγκυρο JSON): ' + text.substring(0, 150));
+        return;
+      }
       if (data.error) {
         setSqlError(data.error);
       } else {

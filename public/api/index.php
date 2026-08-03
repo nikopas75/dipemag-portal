@@ -193,7 +193,74 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
         sendJson(['success' => false, 'error' => 'Το SQL query είναι κενό.'], 400);
     }
     try {
-        $stmt = $pdo->query($sql);
+        $targetDb = 'e_aitisi';
+        $sqlToRun = $sql;
+
+        if (stripos($sqlToRun, 'USE ') === 0) {
+            $semiIndex = strpos($sqlToRun, ';');
+            if ($semiIndex !== false) {
+                $dbStatement = substr($sqlToRun, 0, $semiIndex + 1);
+                $sqlToRun = trim(substr($sqlToRun, $semiIndex + 1));
+                if (preg_match('/USE\s+[`"']?([a-zA-Z0-9_\-]+)[`"']?/i', $dbStatement, $m)) {
+                    $targetDb = $m[1];
+                }
+            }
+        }
+
+        if (!empty($targetDb)) {
+            try {
+                $pdo->exec("USE `$targetDb`");
+            } catch (\Exception $e) {
+                // ignore if initial db does not exist
+            }
+        }
+
+        if (empty($sqlToRun)) {
+            sendJson([
+                'success' => true,
+                'rows' => [['result' => "Switched database context to $targetDb"]],
+                'columns' => ['result'],
+                'rowCount' => 1,
+                'affectedRows' => 0,
+                'executionTimeMs' => 1
+            ]);
+        }
+
+        try {
+            $stmt = $pdo->query($sqlToRun);
+        } catch (\Exception $ex) {
+            if (strpos($ex->getMessage(), "doesn't exist") !== false || strpos($ex->getMessage(), "Table") !== false) {
+                // Extract candidate tables from query
+                preg_match_all('/(?:FROM|JOIN|UPDATE|INTO)\s+[`"']?([a-zA-Z0-9_\-]+)[`"']?/i', $sqlToRun, $matches);
+                $extractedTables = $matches[1] ?? [];
+                
+                if (preg_match('/Table\s+\'[^\']+\.([^\']+)\'\s+doesn\'t exist/i', $ex->getMessage(), $errM)) {
+                    array_unshift($extractedTables, $errM[1]);
+                }
+
+                $resolvedSchema = null;
+                foreach ($extractedTables as $tbl) {
+                    if (empty($tbl)) continue;
+                    $sStmt = $pdo->prepare("SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_NAME = :tbl AND TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys') LIMIT 1");
+                    $sStmt->execute([':tbl' => $tbl]);
+                    $row = $sStmt->fetch(\PDO::FETCH_ASSOC);
+                    if ($row && !empty($row['TABLE_SCHEMA'])) {
+                        $resolvedSchema = $row['TABLE_SCHEMA'];
+                        break;
+                    }
+                }
+
+                if ($resolvedSchema) {
+                    $pdo->exec("USE `$resolvedSchema`");
+                    $stmt = $pdo->query($sqlToRun);
+                } else {
+                    throw $ex;
+                }
+            } else {
+                throw $ex;
+            }
+        }
+
         if ($stmt === false) {
             sendJson(['success' => false, 'error' => 'Αποτυχία εκτέλεσης SQL query.'], 400);
         }

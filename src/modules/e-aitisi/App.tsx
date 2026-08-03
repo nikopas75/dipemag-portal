@@ -53,9 +53,9 @@ export default function App({
   const refreshData = async () => {
     try {
       const [statusRes, logsRes, adminsRes] = await Promise.all([
-        fetch('api/status'),
-        fetch('api/logs'),
-        fetch('api/plinetamag/admins').catch(() => null)
+        fetch('/api/status'),
+        fetch('/api/logs'),
+        fetch('/api/plinetamag/admins').catch(() => null)
       ]);
 
       if (statusRes.ok) {
@@ -95,7 +95,7 @@ export default function App({
 
   const handleSaveConnection = async (newConfig: Partial<MysqlConfig>): Promise<boolean> => {
     try {
-      const res = await fetch('api/connect', {
+      const res = await fetch('/api/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newConfig)
@@ -113,12 +113,19 @@ export default function App({
 
   const handleExecuteQuery = async (query: string): Promise<SqlQueryResult> => {
     try {
-      const res = await fetch('api/sql/execute', {
+      const res = await fetch('/api/sql/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, username: 'plinetamag' })
       });
-      return await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        return { columns: [], rows: [], executionTimeMs: 0, error: 'Σφάλμα απόκρισης διακομιστή: ' + text.substring(0, 150) };
+      }
+      return data;
     } catch (err: any) {
       return { columns: [], rows: [], executionTimeMs: 0, error: err.message };
     }

@@ -125,7 +125,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
   const fetchPhases = async () => {
     setLoadingPhases(true);
     try {
-      const res = await fetch('api/plinetamag/settings');
+      const res = await fetch('/api/plinetamag/settings');
       if (res.ok) {
         const data = await res.json();
         if (data.phases) {
@@ -198,7 +198,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     setCloneSyncMsg(null);
     setErrorMsg(null);
     try {
-      const res = await fetch('api/plinetamag/clone-sync', { method: 'POST' });
+      const res = await fetch('/api/plinetamag/clone-sync', { method: 'POST' });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Σφάλμα συγχρονισμού αντιγράφου ΒΔ');
@@ -338,7 +338,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetch(`api/plinetamag/records?page=${pageIndex}&limit=12&search=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(`/api/plinetamag/records?page=${pageIndex}&limit=12&search=${encodeURIComponent(searchQuery)}`);
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.error || 'Failed to fetch records');
@@ -369,7 +369,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     setTeacherAuthLoading(true);
     setTeacherAuthError(null);
     try {
-      const res = await fetch('api/plinetamag/auth/login', {
+      const res = await fetch('/api/plinetamag/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ afm: teacherAfm, am: teacherAm })
@@ -463,7 +463,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     }
     setSaveSuccess(false);
     try {
-      const res = await fetch(`api/plinetamag/records/${selectedRecord.Α_Α}`, {
+      const res = await fetch(`/api/plinetamag/records/${selectedRecord.Α_Α}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm)

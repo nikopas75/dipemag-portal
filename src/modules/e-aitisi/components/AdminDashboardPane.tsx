@@ -113,7 +113,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
   const fetchPhases = async () => {
     setLoadingPhases(true);
     try {
-      const res = await fetch('api/plinetamag/settings');
+      const res = await fetch('/api/plinetamag/settings');
       if (res.ok) {
         const data = await res.json();
         if (data.phases) {
@@ -129,7 +129,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
 
   const fetchAdmins = async () => {
     try {
-      const res = await fetch('api/plinetamag/admins');
+      const res = await fetch('/api/plinetamag/admins');
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.admins) {
@@ -147,7 +147,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch('api/plinetamag/settings', {
+      const res = await fetch('/api/plinetamag/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phases: updatedPhases })
@@ -171,7 +171,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setLoadingAll(true);
     setErrorMsg(null);
     try {
-      const res = await fetch('api/plinetamag/records?limit=2500');
+      const res = await fetch('/api/plinetamag/records?limit=2500');
       if (!res.ok) throw new Error('Αποτυχία ανάκτησης πλήρους συνόλου εγγραφών.');
       const data = await res.json();
       setAllRecords(data.records || []);
@@ -186,7 +186,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
   const fetchAuditLogs = async () => {
     setLoadingLogs(true);
     try {
-      const res = await fetch('api/logs');
+      const res = await fetch('/api/logs');
       if (res.ok) {
         const data = await res.json();
         setAuditLogs(data || []);
@@ -200,7 +200,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
 
   const fetchCustomBackupStatus = async () => {
     try {
-      const res = await fetch('api/plinetamag/backup-status');
+      const res = await fetch('/api/plinetamag/backup-status');
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.exists) {
@@ -234,7 +234,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch('api/plinetamag/clone-sync', { method: 'POST' });
+      const res = await fetch('/api/plinetamag/clone-sync', { method: 'POST' });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Σφάλμα συγχρονισμού');
@@ -259,7 +259,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch('api/plinetamag/restore-sync', { method: 'POST' });
+      const res = await fetch('/api/plinetamag/restore-sync', { method: 'POST' });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Σφάλμα επαναφοράς');
@@ -757,7 +757,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     }).filter(row => row.ΑρΜητρ || row.ΑΦΜ);
 
     try {
-      const res = await fetch('api/plinetamag/bulk-update', {
+      const res = await fetch('/api/plinetamag/bulk-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates: normalizedUpdates })
@@ -790,7 +790,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setIsMigratingBackup(true);
     setMigrationError(null);
     try {
-      const res = await fetch('api/plinetamag/migration/backup', { method: 'POST' });
+      const res = await fetch('/api/plinetamag/migration/backup', { method: 'POST' });
       const text = await res.text();
       let data: any;
       try { data = JSON.parse(text); } catch { throw new Error(`Σφάλμα διακομιστή [${res.status}]: ${text.substring(0, 150)}`); }
@@ -811,7 +811,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setIsMigratingClear(true);
     setMigrationError(null);
     try {
-      const res = await fetch('api/plinetamag/migration/clear', { method: 'POST' });
+      const res = await fetch('/api/plinetamag/migration/clear', { method: 'POST' });
       const text = await res.text();
       let data: any;
       try { data = JSON.parse(text); } catch { throw new Error(`Σφάλμα διακομιστή [${res.status}]: ${text.substring(0, 150)}`); }
@@ -880,7 +880,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
 
       for (let i = 0; i < normalizedUpdates.length; i += chunkSize) {
         const chunk = normalizedUpdates.slice(i, i + chunkSize);
-        const res = await fetch('api/plinetamag/migration/import', {
+        const res = await fetch('/api/plinetamag/migration/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ updates: chunk })
@@ -913,7 +913,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setIsMigratingRestore(true);
     setMigrationError(null);
     try {
-      const res = await fetch('api/plinetamag/migration/restore', { method: 'POST' });
+      const res = await fetch('/api/plinetamag/migration/restore', { method: 'POST' });
       const text = await res.text();
       let data: any;
       try { data = JSON.parse(text); } catch { throw new Error(`Σφάλμα διακομιστή [${res.status}]: ${text.substring(0, 150)}`); }
@@ -942,7 +942,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch('api/plinetamag/bulk-clear', {
+      const res = await fetch('/api/plinetamag/bulk-clear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetField: clearTarget })
@@ -965,7 +965,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
 
   const saveAdminsToDb = async (updatedList: { username: string; password: string }[]) => {
     try {
-      const res = await fetch('api/plinetamag/admins', {
+      const res = await fetch('/api/plinetamag/admins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ admins: updatedList })
