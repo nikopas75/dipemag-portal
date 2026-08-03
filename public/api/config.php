@@ -23,28 +23,23 @@ function getDbConnection($customHost = null, $customPort = null, $customUser = n
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES   => false,
+        PDO::ATTR_TIMEOUT            => 5,
     ];
 
     try {
         $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
         return new PDO($dsn, $user, $pass, $options);
-    } catch (\Throwable $e) {
-        // Fallback: connect to MySQL server without forcing dbname in DSN
+    } catch (\Throwable $e1) {
         try {
             $dsnNoDb = "mysql:host=" . $host . ";port=" . $port . ";charset=" . DB_CHARSET;
             $pdo = new PDO($dsnNoDb, $user, $pass, $options);
-            
             if (!empty($dbname)) {
-                try {
-                    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
-                } catch (\Throwable $ce) {}
-                try {
-                    $pdo->exec("USE `$dbname`");
-                } catch (\Throwable $ue) {}
+                @$pdo->exec("USE `$dbname`");
             }
             return $pdo;
-        } catch (\Throwable $fallbackErr) {
-            throw new \Exception("Αποτυχία σύνδεσης στη βάση δεδομένων ($host:$port, χρήστης $user): " . $e->getMessage());
+        } catch (\Throwable $e2) {
+            throw new \Exception("Αποτυχία σύνδεσης στον MySQL Server ($host:$port, χρήστης $user): " . $e1->getMessage());
         }
     }
 }
+

@@ -212,7 +212,7 @@ if ($route === '/api/connect' || $routeClean === 'connect') {
             ]
         ]);
     } catch (\Throwable $e) {
-        sendJson(['success' => false, 'error' => 'Αποτυχία σύνδεσης: ' . $e->getMessage()], 400);
+        sendJson(['success' => false, 'error' => 'Αποτυχία σύνδεσης: ' . $e->getMessage()], 200);
     }
 }
 
@@ -220,14 +220,14 @@ if ($route === '/api/connect' || $routeClean === 'connect') {
 if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method === 'POST') {
     $sql = trim($input['query'] ?? '');
     if (empty($sql)) {
-        sendJson(['success' => false, 'error' => 'Το SQL query είναι κενό.'], 400);
+        sendJson(['success' => false, 'error' => 'Το SQL query είναι κενό.'], 200);
     }
     
     if (!$pdo) {
         try {
             $pdo = getDbConnection();
         } catch (\Throwable $e) {
-            sendJson(['success' => false, 'error' => 'Αποτυχία σύνδεσης PDO στη βάση δεδομένων: ' . $e->getMessage()], 400);
+            sendJson(['success' => false, 'error' => 'Αποτυχία σύνδεσης PDO στη βάση δεδομένων: ' . $e->getMessage()], 200);
         }
     }
 
@@ -343,7 +343,7 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
         }
 
         if ($stmt === false) {
-            sendJson(['success' => false, 'error' => 'Αποτυχία εκτέλεσης SQL query.'], 400);
+            sendJson(['success' => false, 'error' => 'Αποτυχία εκτέλεσης SQL query.'], 200);
         }
         if ($stmt->columnCount() > 0) {
             $rows = $stmt->fetchAll();
@@ -366,7 +366,7 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
             ]);
         }
     } catch (\Throwable $e) {
-        sendJson(['success' => false, 'error' => $e->getMessage()], 400);
+        sendJson(['success' => false, 'error' => $e->getMessage()], 200);
     }
 }
 
