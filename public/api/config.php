@@ -11,7 +11,7 @@ define('DB_PORT', '3306');
 define('DB_NAME', 'e_aitisi');   // Όνομα Βάσης Δεδομένων
 define('DB_USER', 'plinetamag'); // Όνομα χρήστη Βάσης (MySQL Username)
 define('DB_PASS', 'Fr9KC7$c4e'); // Κωδικός πρόσβασης Βάσης (MySQL Password)
-define('DB_CHARSET', 'utf8mb3');
+define('DB_CHARSET', 'utf8mb4');
 
 function getDbConnection($customHost = null, $customPort = null, $customUser = null, $customPass = null, $customDb = null) {
     static $pdo = null;
@@ -29,8 +29,18 @@ function getDbConnection($customHost = null, $customPort = null, $customUser = n
     ];
 
     if ($pdo === null) {
-        $dsn = "mysql:host=10.2.49.42;port=3306;dbname=e_aitisi;charset=utf8mb3";
-        $pdo = new PDO($dsn, 'plinetamag', 'Fr9KC7$c4e', $options);
+        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+        try {
+            $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+        } catch (\PDOException $e) {
+            header('Content-Type: application/json; charset=utf-8');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Αποτυχία σύνδεσης στη βάση δεδομένων MySQL: ' . $e->getMessage()
+            ], JSON_UNESCAPED_UNICODE);
+        exit;
+        }
     }
     return $pdo;
 }
