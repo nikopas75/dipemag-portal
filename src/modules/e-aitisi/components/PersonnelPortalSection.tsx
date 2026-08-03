@@ -39,10 +39,10 @@ export interface PlineRecord {
   ΛόγοιΥγείας?: string;
   Ποσοστό?: number;
   ΛόγοιΥγείαςΙδίου?: string;
-  ΛόγοιΥγείαςΣυζύγου?: string;
-  ΛόγοιΥγείαςΤέκνων?: string;
-  ΛόγοιΥγείαςΓονέων?: string;
-  ΛόγοιΥγείαςΑδερφών?: string;
+  ΛόγοιΥγείαςΣυζ?: string;
+  ΛόγοιΥγείαςΤεκν?: string;
+  ΛόγοιΥγείαςΓον?: string;
+  ΛόγοιΥγείαςΑδερ?: string;
   Παρατηρήσεις: string;
   ΑρΠροτιμ?: number;
   Προτιμήσεις?: string;
@@ -538,17 +538,17 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     if (record.ΛόγοιΥγείαςΙδίου && record.ΛόγοιΥγείαςΙδίου !== '0') {
       parts.push(`Ιδίου: ${healthMap[record.ΛόγοιΥγείαςΙδίου]}`);
     }
-    if (record.ΛόγοιΥγείαςΣυζύγου && record.ΛόγοιΥγείαςΣυζύγου !== '0') {
-      parts.push(`Συζύγου: ${healthMap[record.ΛόγοιΥγείαςΣυζύγου]}`);
+    if (record.ΛόγοιΥγείαςΣυζ && record.ΛόγοιΥγείαςΣυζ !== '0') {
+      parts.push(`Συζύγου: ${healthMap[record.ΛόγοιΥγείαςΣυζ]}`);
     }
-    if (record.ΛόγοιΥγείαςΤέκνων && record.ΛόγοιΥγείαςΤέκνων !== '0') {
-      parts.push(`Τέκνων: ${healthMap[record.ΛόγοιΥγείαςΤέκνων]}`);
+    if (record.ΛόγοιΥγείαςΤεκν && record.ΛόγοιΥγείαςΤεκν !== '0') {
+      parts.push(`Τέκνων: ${healthMap[record.ΛόγοιΥγείαςΤεκν]}`);
     }
-    if (record.ΛόγοιΥγείαςΓονέων && record.ΛόγοιΥγείαςΓονέων !== '0') {
-      parts.push(`Γονέων: ${healthMap[record.ΛόγοιΥγείαςΓονέων]}`);
+    if (record.ΛόγοιΥγείαςΓον && record.ΛόγοιΥγείαςΓον !== '0') {
+      parts.push(`Γονέων: ${healthMap[record.ΛόγοιΥγείαςΓον]}`);
     }
-    if (record.ΛόγοιΥγείαςΑδερφών && record.ΛόγοιΥγείαςΑδερφών !== '0') {
-      parts.push(`Αδερφών: ${healthMap[record.ΛόγοιΥγείαςΑδερφών]}`);
+    if (record.ΛόγοιΥγείαςΑδερ && record.ΛόγοιΥγείαςΑδερ !== '0') {
+      parts.push(`Αδερφών: ${healthMap[record.ΛόγοιΥγείαςΑδερ]}`);
     }
     return parts.length > 0 ? parts.join(' • ') : 'Όχι';
   };
@@ -1585,8 +1585,8 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
                         <div>
                           <label className="block text-xs font-medium text-slate-300 mb-1">Λόγοι Υγείας Συζύγου</label>
                           <select
-                            value={editForm.ΛόγοιΥγείαςΣυζύγου || '0'}
-                            onChange={e => handleFieldChange('ΛόγοιΥγείαςΣυζύγου', e.target.value)}
+                            value={editForm.ΛόγοιΥγείαςΣυζ || '0'}
+                            onChange={e => handleFieldChange('ΛόγοιΥγείαςΣυζ', e.target.value)}
                             className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
                           >
                             <option value="0">Όχι</option>
@@ -1599,8 +1599,8 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
                         <div>
                           <label className="block text-xs font-medium text-slate-300 mb-1">Λόγοι Υγείας Τέκνων</label>
                           <select
-                            value={editForm.ΛόγοιΥγείαςΤέκνων || '0'}
-                            onChange={e => handleFieldChange('ΛόγοιΥγείαςΤέκνων', e.target.value)}
+                            value={editForm.ΛόγοιΥγείαςΤεκν || '0'}
+                            onChange={e => handleFieldChange('ΛόγοιΥγείαςΤεκν', e.target.value)}
                             className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
                           >
                             <option value="0">Όχι</option>
@@ -1613,8 +1613,8 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
                         <div>
                           <label className="block text-xs font-medium text-slate-300 mb-1">Λόγοι Υγείας Γονέων</label>
                           <select
-                            value={editForm.ΛόγοιΥγείαςΓονέων || '0'}
-                            onChange={e => handleFieldChange('ΛόγοιΥγείαςΓονέων', e.target.value)}
+                            value={editForm.ΛόγοιΥγείαςΓον || '0'}
+                            onChange={e => handleFieldChange('ΛόγοιΥγείαςΓον', e.target.value)}
                             className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
                           >
                             <option value="0">Όχι</option>
@@ -1627,8 +1627,8 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
                         <div>
                           <label className="block text-xs font-medium text-slate-300 mb-1">Λόγοι Υγείας Αδερφών</label>
                           <select
-                            value={editForm.ΛόγοιΥγείαςΑδερφών || '0'}
-                            onChange={e => handleFieldChange('ΛόγοιΥγείαςΑδερφών', e.target.value)}
+                            value={editForm.ΛόγοιΥγείαςΑδερ || '0'}
+                            onChange={e => handleFieldChange('ΛόγοιΥγείαςΑδερ', e.target.value)}
                             className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
                           >
                             <option value="0">Όχι</option>

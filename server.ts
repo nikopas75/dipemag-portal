@@ -678,10 +678,6 @@ async function startServer() {
       const row = rows[0];
       const teacher = {
         ...row,
-        ΛόγοιΥγείαςΣυζύγου: row.ΛόγοιΥγείαςΣυζ !== undefined ? row.ΛόγοιΥγείαςΣυζ : row.ΛόγοιΥγείαςΣυζύγου,
-        ΛόγοιΥγείαςΤέκνων: row.ΛόγοιΥγείαςΤεκν !== undefined ? row.ΛόγοιΥγείαςΤεκν : row.ΛόγοιΥγείαςΤέκνων,
-        ΛόγοιΥγείαςΓονέων: row.ΛόγοιΥγείαςΓον !== undefined ? row.ΛόγοιΥγείαςΓον : row.ΛόγοιΥγείαςΓονέων,
-        ΛόγοιΥγείαςΑδερφών: row.ΛόγοιΥγείαςΑδερ !== undefined ? row.ΛόγοιΥγείαςΑδερ : row.ΛόγοιΥγείαςΑδερφών,
       };
       addAuditLog(`${teacher.Επώνυμο} ${teacher.Όνομα}`, `TEACHER LOGIN SUCCESS (${teacher.ΑΦΜ}) [Table: ${table}]`, 'CONNECT', 1, 0);
 
@@ -719,10 +715,6 @@ async function startServer() {
 
       const mappedRows = (rows as any[]).map(row => ({
         ...row,
-        ΛόγοιΥγείαςΣυζύγου: row.ΛόγοιΥγείαςΣυζ !== undefined ? row.ΛόγοιΥγείαςΣυζ : row.ΛόγοιΥγείαςΣυζύγου,
-        ΛόγοιΥγείαςΤέκνων: row.ΛόγοιΥγείαςΤεκν !== undefined ? row.ΛόγοιΥγείαςΤεκν : row.ΛόγοιΥγείαςΤέκνων,
-        ΛόγοιΥγείαςΓονέων: row.ΛόγοιΥγείαςΓον !== undefined ? row.ΛόγοιΥγείαςΓον : row.ΛόγοιΥγείαςΓονέων,
-        ΛόγοιΥγείαςΑδερφών: row.ΛόγοιΥγείαςΑδερ !== undefined ? row.ΛόγοιΥγείαςΑδερ : row.ΛόγοιΥγείαςΑδερφών,
       }));
 
       res.json({
@@ -744,10 +736,6 @@ async function startServer() {
     }
     const id = req.params.id;
     const body = { ...req.body };
-    if ('ΛόγοιΥγείαςΣυζύγου' in body) body['ΛόγοιΥγείαςΣυζ'] = body['ΛόγοιΥγείαςΣυζύγου'];
-    if ('ΛόγοιΥγείαςΤέκνων' in body) body['ΛόγοιΥγείαςΤεκν'] = body['ΛόγοιΥγείαςΤέκνων'];
-    if ('ΛόγοιΥγείαςΓονέων' in body) body['ΛόγοιΥγείαςΓον'] = body['ΛόγοιΥγείαςΓονέων'];
-    if ('ΛόγοιΥγείαςΑδερφών' in body) body['ΛόγοιΥγείαςΑδερ'] = body['ΛόγοιΥγείαςΑδερφών'];
     try {
       const table = await getTargetTable(externalPool);
       const [cols]: any = await externalPool.query(`DESCRIBE ${table}`);
@@ -1018,10 +1006,6 @@ async function startServer() {
             
             // Map row fields
             const mappedRow = { ...row };
-            if ('ΛόγοιΥγείαςΣυζύγου' in mappedRow) mappedRow['ΛόγοιΥγείαςΣυζ'] = mappedRow['ΛόγοιΥγείαςΣυζύγου'];
-            if ('ΛόγοιΥγείαςΤέκνων' in mappedRow) mappedRow['ΛόγοιΥγείαςΤεκν'] = mappedRow['ΛόγοιΥγείαςΤέκνων'];
-            if ('ΛόγοιΥγείαςΓονέων' in mappedRow) mappedRow['ΛόγοιΥγείαςΓον'] = mappedRow['ΛόγοιΥγείαςΓονέων'];
-            if ('ΛόγοιΥγείαςΑδερφών' in mappedRow) mappedRow['ΛόγοιΥγείαςΑδερ'] = mappedRow['ΛόγοιΥγείαςΑδερφών'];
 
             // Build safe field updates
             const fieldsToUpdate = [
@@ -1109,10 +1093,6 @@ async function startServer() {
         if (existingCols.includes('ΛόγοιΥγείας')) setParts.push("ΛόγοιΥγείας = '0'");
         if (existingCols.includes('Ποσοστό')) setParts.push("Ποσοστό = 0");
         if (existingCols.includes('ΛόγοιΥγείαςΙδίου')) setParts.push("ΛόγοιΥγείαςΙδίου = '0'");
-        if (existingCols.includes('ΛόγοιΥγείαςΣυζύγου')) setParts.push("ΛόγοιΥγείαςΣυζύγου = '0'");
-        if (existingCols.includes('ΛόγοιΥγείαςΤέκνων')) setParts.push("ΛόγοιΥγείαςΤέκνων = '0'");
-        if (existingCols.includes('ΛόγοιΥγείαςΓονέων')) setParts.push("ΛόγοιΥγείαςΓονέων = '0'");
-        if (existingCols.includes('ΛόγοιΥγείαςΑδερφών')) setParts.push("ΛόγοιΥγείαςΑδερφών = '0'");
         if (existingCols.includes('ΛόγοιΥγείαςΣυζ')) setParts.push("ΛόγοιΥγείαςΣυζ = '0'");
         if (existingCols.includes('ΛόγοιΥγείαςΤεκν')) setParts.push("ΛόγοιΥγείαςΤεκν = '0'");
         if (existingCols.includes('ΛόγοιΥγείαςΓον')) setParts.push("ΛόγοιΥγείαςΓον = '0'");
