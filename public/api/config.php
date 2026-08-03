@@ -16,11 +16,11 @@ define('DB_CHARSET', 'utf8mb4');
 function getDbConnection($customHost = null, $customPort = null, $customUser = null, $customPass = null, $customDb = null) {
     static $pdo = null;
 
-    $host   = '10.2.49.42';
-    $port   = '3306';
-    $user   = 'plinetamag';
-    $pass   = 'Fr9KC7$c4e';
-    $dbname = 'e_aitisi';
+    $host   = !empty($customHost) ? $customHost : DB_HOST;
+    $port   = !empty($customPort) ? $customPort : DB_PORT;
+    $user   = !empty($customUser) ? $customUser : DB_USER;
+    $pass   = ($customPass !== null && $customPass !== '') ? $customPass : DB_PASS;
+    $dbname = !empty($customDb)   ? $customDb   : DB_NAME;
 
     $options = [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -28,19 +28,14 @@ function getDbConnection($customHost = null, $customPort = null, $customUser = n
         PDO::ATTR_EMULATE_PREPARES   => false,
     ];
 
+    if ($customHost !== null || $customUser !== null || $customDb !== null) {
+        $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
+        return new PDO($dsn, $user, $pass, $options);
+    }
+
     if ($pdo === null) {
         $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        try {
-            $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-        } catch (\PDOException $e) {
-            header('Content-Type: application/json; charset=utf-8');
-            http_response_code(500);
-            echo json_encode([
-                'success' => false,
-                'error' => 'Αποτυχία σύνδεσης στη βάση δεδομένων MySQL: ' . $e->getMessage()
-            ], JSON_UNESCAPED_UNICODE);
-        exit;
-        }
+        $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
     }
     return $pdo;
 }
