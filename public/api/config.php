@@ -11,7 +11,7 @@ define('DB_PORT', '3306');
 define('DB_NAME', 'e_aitisi');   // Όνομα Βάσης Δεδομένων
 define('DB_USER', 'plinetamag'); // Όνομα χρήστη Βάσης (MySQL Username)
 define('DB_PASS', 'Fr9KC7$c4e'); // Κωδικός πρόσβασης Βάσης (MySQL Password)
-define('DB_CHARSET', 'utf8mb4');
+define('DB_CHARSET', 'utf8mb3');
 
 function getDbConnection($customHost = null, $customPort = null, $customUser = null, $customPass = null, $customDb = null) {
     static $pdo = null;
@@ -29,7 +29,7 @@ function getDbConnection($customHost = null, $customPort = null, $customUser = n
     ];
 
     if ($pdo === null) {
-        $dsn = "mysql:host=10.2.49.42;port=3306;dbname=e_aitisi;charset=utf8mb4";
+        $dsn = "mysql:host=10.2.49.42;port=3306;dbname=e_aitisi;charset=utf8mb3";
         $pdo = new PDO($dsn, 'plinetamag', 'Fr9KC7$c4e', $options);
     }
     return $pdo;
