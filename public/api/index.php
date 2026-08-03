@@ -24,6 +24,15 @@ function sendJson($data, $statusCode = 200) {
     exit;
 }
 
+set_exception_handler(function ($e) {
+    sendJson(['success' => false, 'error' => 'Σφάλμα PHP: ' . $e->getMessage()], 200);
+});
+
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+    if (!(error_reporting() & $errno)) return false;
+    sendJson(['success' => false, 'error' => "Σφάλμα PHP [$errno]: $errstr στο $errfile:$errline"], 200);
+});
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     if (ob_get_length()) ob_clean();
     http_response_code(200);
@@ -192,9 +201,19 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
     if (empty($sql)) {
         sendJson(['success' => false, 'error' => 'Το SQL query είναι κενό.'], 400);
     }
+    
+    if (!$pdo) {
+        try {
+            $pdo = getDbConnection();
+        } catch (\Throwable $e) {
+            sendJson(['success' => false, 'error' => 'Αποτυχία σύνδεσης PDO στη βάση δεδομένων: ' . $e->getMessage()], 400);
+        }
+    }
+
     try {
         $targetDb = 'e_aitisi';
         $sqlToRun = $sql;
+        $knownPortalDbs = ['e_aitisi', 'programmatismos', 'axiologisi'];
 
         if (stripos($sqlToRun, 'USE ') === 0) {
             $semiIndex = strpos($sqlToRun, ';');
@@ -205,13 +224,31 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
                     $targetDb = $m[1];
                 }
             }
+        } else {
+            // Auto-detect target database if query mentions specific app tables
+            $progTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users', 'dim_data_math', 'nip_data_math', 'eid_dim_data_math', 'eid_nip_data_math', 'eid_data_math', 'dim_data_ekp', 'eid_dim_data_ekp', 'eid_data_ekp'];
+            foreach ($progTables as $t) {
+                if (preg_match('/\b' . $t . '\b/i', $sqlToRun)) {
+                    $targetDb = 'programmatismos';
+                    break;
+                }
+            }
+            if ($targetDb === 'e_aitisi') {
+                $axioTables = ['cycles', 'evaluators', 'evaluations', 'axiologisi_users'];
+                foreach ($axioTables as $t) {
+                    if (preg_match('/\b' . $t . '\b/i', $sqlToRun)) {
+                        $targetDb = 'axiologisi';
+                        break;
+                    }
+                }
+            }
         }
 
         if (!empty($targetDb)) {
             try {
                 $pdo->exec("USE `$targetDb`");
-            } catch (\Exception $e) {
-                // ignore if initial db does not exist
+            } catch (\Throwable $e) {
+                // ignore if initial db does not exist or user lacks access
             }
         }
 
@@ -226,33 +263,56 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
             ]);
         }
 
+        $stmt = false;
         try {
             $stmt = $pdo->query($sqlToRun);
-        } catch (\Exception $ex) {
+        } catch (\Throwable $ex) {
             if (strpos($ex->getMessage(), "doesn't exist") !== false || strpos($ex->getMessage(), "Table") !== false) {
-                // Extract candidate tables from query
-                preg_match_all('/(?:FROM|JOIN|UPDATE|INTO)\s+[`"']?([a-zA-Z0-9_\-]+)[`"']?/i', $sqlToRun, $matches);
-                $extractedTables = $matches[1] ?? [];
+                $successStmt = null;
                 
-                if (preg_match('/Table\s+\'[^\']+\.([^\']+)\'\s+doesn\'t exist/i', $ex->getMessage(), $errM)) {
-                    array_unshift($extractedTables, $errM[1]);
+                // Strategy 1: Search via information_schema (if user has permissions)
+                try {
+                    preg_match_all('/(?:FROM|JOIN|UPDATE|INTO)\s+[`"']?([a-zA-Z0-9_\-]+)[`"']?/i', $sqlToRun, $matches);
+                    $extractedTables = $matches[1] ?? [];
+                    
+                    if (preg_match('/Table\s+\'[^\']+\.([^\']+)\'\s+doesn\'t exist/i', $ex->getMessage(), $errM)) {
+                        array_unshift($extractedTables, $errM[1]);
+                    }
+
+                    foreach ($extractedTables as $tbl) {
+                        if (empty($tbl)) continue;
+                        $sStmt = $pdo->prepare("SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_NAME = :tbl AND TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys') LIMIT 1");
+                        $sStmt->execute([':tbl' => $tbl]);
+                        $row = $sStmt->fetch(\PDO::FETCH_ASSOC);
+                        if ($row && !empty($row['TABLE_SCHEMA'])) {
+                            $pdo->exec("USE `" . $row['TABLE_SCHEMA'] . "`");
+                            $successStmt = $pdo->query($sqlToRun);
+                            break;
+                        }
+                    }
+                } catch (\Throwable $infoEx) {
+                    // information_schema restricted or failed
                 }
 
-                $resolvedSchema = null;
-                foreach ($extractedTables as $tbl) {
-                    if (empty($tbl)) continue;
-                    $sStmt = $pdo->prepare("SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_NAME = :tbl AND TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys') LIMIT 1");
-                    $sStmt->execute([':tbl' => $tbl]);
-                    $row = $sStmt->fetch(\PDO::FETCH_ASSOC);
-                    if ($row && !empty($row['TABLE_SCHEMA'])) {
-                        $resolvedSchema = $row['TABLE_SCHEMA'];
-                        break;
+                // Strategy 2: Trial fallback across known portal databases
+                if (!$successStmt) {
+                    foreach ($knownPortalDbs as $candDb) {
+                        if ($candDb === $targetDb) continue;
+                        try {
+                            $pdo->exec("USE `$candDb`");
+                            $trialStmt = $pdo->query($sqlToRun);
+                            if ($trialStmt) {
+                                $successStmt = $trialStmt;
+                                break;
+                            }
+                        } catch (\Throwable $trialEx) {
+                            // continue to next database
+                        }
                     }
                 }
 
-                if ($resolvedSchema) {
-                    $pdo->exec("USE `$resolvedSchema`");
-                    $stmt = $pdo->query($sqlToRun);
+                if ($successStmt) {
+                    $stmt = $successStmt;
                 } else {
                     throw $ex;
                 }
@@ -284,7 +344,7 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
                 'columns' => []
             ]);
         }
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         sendJson(['success' => false, 'error' => $e->getMessage()], 400);
     }
 }

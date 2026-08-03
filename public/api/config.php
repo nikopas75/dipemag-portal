@@ -19,12 +19,28 @@ function getDbConnection($customHost = null, $customPort = null, $customUser = n
     $pass = ($customPass !== null && $customPass !== '') ? $customPass : DB_PASS;
     $dbname = $customDb ?: DB_NAME;
 
-    $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
     $options = [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES   => false,
     ];
-    
-    return new PDO($dsn, $user, $pass, $options);
+
+    try {
+        $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
+        return new PDO($dsn, $user, $pass, $options);
+    } catch (\Throwable $e) {
+        // Fallback: connect to MySQL server without forcing dbname in DSN
+        $dsnNoDb = "mysql:host=" . $host . ";port=" . $port . ";charset=" . DB_CHARSET;
+        $pdo = new PDO($dsnNoDb, $user, $pass, $options);
+        
+        if (!empty($dbname)) {
+            try {
+                $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
+            } catch (\Throwable $ce) {}
+            try {
+                $pdo->exec("USE `$dbname`");
+            } catch (\Throwable $ue) {}
+        }
+        return $pdo;
+    }
 }

@@ -594,23 +594,43 @@ async function startServer() {
             }
 
             let resolvedSchema: string | null = null;
-            for (const tbl of extractedTables) {
-              if (!tbl) continue;
-              const [schemaRows]: any = await conn.query(
-                `SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_NAME = ? AND TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys') LIMIT 1`,
-                [tbl]
-              );
-              if (Array.isArray(schemaRows) && schemaRows.length > 0 && schemaRows[0].TABLE_SCHEMA) {
-                resolvedSchema = schemaRows[0].TABLE_SCHEMA;
-                break;
+            try {
+              for (const tbl of extractedTables) {
+                if (!tbl) continue;
+                const [schemaRows]: any = await conn.query(
+                  `SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_NAME = ? AND TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys') LIMIT 1`,
+                  [tbl]
+                );
+                if (Array.isArray(schemaRows) && schemaRows.length > 0 && schemaRows[0].TABLE_SCHEMA) {
+                  resolvedSchema = schemaRows[0].TABLE_SCHEMA;
+                  break;
+                }
               }
+            } catch (infoErr) {
+              // information_schema query restricted or failed
             }
 
             if (resolvedSchema) {
               await conn.query(`USE \`${resolvedSchema}\`;`);
               [rows, fields] = await conn.query(sqlToRun);
             } else {
-              throw execErr;
+              // Strategy B: Trial candidate databases
+              const candidateDbs = ['e_aitisi', 'programmatismos', 'axiologisi'];
+              let trialSuccess = false;
+              for (const candDb of candidateDbs) {
+                if (candDb === targetDb) continue;
+                try {
+                  await conn.query(`USE \`${candDb}\`;`);
+                  [rows, fields] = await conn.query(sqlToRun);
+                  trialSuccess = true;
+                  break;
+                } catch (tErr) {
+                  // continue trying
+                }
+              }
+              if (!trialSuccess) {
+                throw execErr;
+              }
             }
           } else {
             throw execErr;
