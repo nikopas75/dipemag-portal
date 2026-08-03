@@ -33,6 +33,22 @@ set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     sendJson(['success' => false, 'error' => "Σφάλμα PHP [$errno]: $errstr στο $errfile:$errline"], 200);
 });
 
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
+        if (ob_get_length()) ob_clean();
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(200);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Κρίσιμο Σφάλμα PHP [' . $error['type'] . ']: ' . $error['message'] . ' στο ' . $error['file'] . ':' . $error['line']
+        ], JSON_UNESCAPED_UNICODE);
+    }
+});
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     if (ob_get_length()) ob_clean();
     http_response_code(200);
@@ -41,7 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/config.php';
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
 
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
@@ -72,6 +90,7 @@ function mapTeacherRow($row) {
 
 // Ensure database schema helper for e-Aitisi
 function ensureEaitisiSchema($pdo) {
+    if (!$pdo) return;
     try {
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS teachers (
@@ -124,15 +143,17 @@ function ensureEaitisiSchema($pdo) {
                 value_data TEXT
             ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
         ");
-    } catch (\Exception $e) {}
+    } catch (\Throwable $e) {}
 }
 
 $pdo = null;
 $dbInitError = null;
 try {
     $pdo = getDbConnection();
-    ensureEaitisiSchema($pdo);
-} catch (\Exception $e) {
+    if ($pdo) {
+        ensureEaitisiSchema($pdo);
+    }
+} catch (\Throwable $e) {
     $dbInitError = $e->getMessage();
 }
 
