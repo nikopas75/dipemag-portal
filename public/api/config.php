@@ -16,11 +16,11 @@ define('DB_CHARSET', 'utf8mb4');
 function getDbConnection($customHost = null, $customPort = null, $customUser = null, $customPass = null, $customDb = null) {
     static $pdo = null;
 
-    $host   = !empty($customHost) ? $customHost : DB_HOST;
-    $port   = !empty($customPort) ? $customPort : DB_PORT;
-    $user   = !empty($customUser) ? $customUser : DB_USER;
-    $pass   = ($customPass !== null && $customPass !== '') ? $customPass : DB_PASS;
-    $dbname = !empty($customDb)   ? $customDb   : DB_NAME;
+    $host   = '10.2.49.42';
+    $port   = '3306';
+    $user   = 'plinetamag';
+    $pass   = 'Fr9KC7$c4e';
+    $dbname = 'e_aitisi';
 
     $options = [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -28,16 +28,9 @@ function getDbConnection($customHost = null, $customPort = null, $customUser = n
         PDO::ATTR_EMULATE_PREPARES   => false,
     ];
 
-    // Αν δοθούν προσαρμοσμένα στοιχεία (π.χ. δοκιμή από Modal), δημιουργούμε νέο PDO instance
-    if ($customHost !== null || $customUser !== null || $customDb !== null) {
-        $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
-        return new PDO($dsn, $user, $pass, $options);
-    }
-
-    // Διαφορετικά, επιστρέφουμε τη στατική σύνδεση με τα προεπιλεγμένα στοιχεία
     if ($pdo === null) {
-        $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, $user, $pass, $options);
+        $dsn = "mysql:host=10.2.49.42;port=3306;dbname=e_aitisi;charset=utf8mb4";
+        $pdo = new PDO($dsn, 'plinetamag', 'Fr9KC7$c4e', $options);
     }
     return $pdo;
 }
