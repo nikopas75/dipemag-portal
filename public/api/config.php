@@ -26,20 +26,7 @@ function getDbConnection($customHost = null, $customPort = null, $customUser = n
         PDO::ATTR_TIMEOUT            => 5,
     ];
 
-    try {
-        $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
-        return new PDO($dsn, $user, $pass, $options);
-    } catch (\Throwable $e1) {
-        try {
-            $dsnNoDb = "mysql:host=" . $host . ";port=" . $port . ";charset=" . DB_CHARSET;
-            $pdo = new PDO($dsnNoDb, $user, $pass, $options);
-            if (!empty($dbname)) {
-                @$pdo->exec("USE `$dbname`");
-            }
-            return $pdo;
-        } catch (\Throwable $e2) {
-            throw new \Exception("Αποτυχία σύνδεσης στον MySQL Server ($host:$port, χρήστης $user): " . $e1->getMessage());
-        }
-    }
+    $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
+    return new PDO($dsn, $user, $pass, $options);
 }
 
