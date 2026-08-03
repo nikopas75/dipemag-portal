@@ -35,7 +35,17 @@ function getDbConnection($customHost = null, $customPort = null, $customUser = n
 
     if ($pdo === null) {
         $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+        try {
+            $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+        } catch (\PDOException $e) {
+            header('Content-Type: application/json; charset=utf-8');
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Αποτυχία σύνδεσης στη βάση δεδομένων MySQL: ' . $e->getMessage()
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
     }
     return $pdo;
 }
