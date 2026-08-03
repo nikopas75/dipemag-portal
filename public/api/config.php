@@ -13,20 +13,20 @@ define('DB_PASS', 'Fr9KC7$c4e');
 define('DB_CHARSET', 'utf8mb4');
 
 function getDbConnection($customHost = null, $customPort = null, $customUser = null, $customPass = null, $customDb = null) {
-    $host = $customHost ?: DB_HOST;
-    $port = $customPort ?: DB_PORT;
-    $user = $customUser ?: DB_USER;
-    $pass = ($customPass !== null && $customPass !== '') ? $customPass : DB_PASS;
-    $dbname = $customDb ?: DB_NAME;
+    $host   = !empty($customHost) ? $customHost : DB_HOST;
+    $port   = !empty($customPort) ? $customPort : DB_PORT;
+    $user   = !empty($customUser) ? $customUser : DB_USER;
+    $pass   = ($customPass !== null && $customPass !== '') ? $customPass : DB_PASS;
+    $dbname = !empty($customDb)   ? $customDb   : DB_NAME;
 
     $options = [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES   => false,
-        PDO::ATTR_TIMEOUT            => 5,
     ];
 
     $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
     return new PDO($dsn, $user, $pass, $options);
 }
+
 

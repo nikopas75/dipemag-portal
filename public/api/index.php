@@ -191,11 +191,11 @@ if ($route === '/api/status' || $routeClean === 'status' || $routeClean === '') 
 
 // 2. POST /api/connect
 if ($route === '/api/connect' || $routeClean === 'connect') {
-    $reqHost = $input['host'] ?? DB_HOST;
-    $reqPort = $input['port'] ?? DB_PORT;
-    $reqUser = $input['user'] ?? DB_USER;
-    $reqPass = isset($input['password']) ? $input['password'] : DB_PASS;
-    $reqDb   = $input['database'] ?? DB_NAME;
+    $reqHost = !empty($input['host']) ? $input['host'] : DB_HOST;
+    $reqPort = !empty($input['port']) ? $input['port'] : DB_PORT;
+    $reqUser = !empty($input['user']) ? $input['user'] : DB_USER;
+    $reqPass = (isset($input['password']) && $input['password'] !== '') ? $input['password'] : DB_PASS;
+    $reqDb   = !empty($input['database']) ? $input['database'] : DB_NAME;
 
     try {
         $testPdo = getDbConnection($reqHost, $reqPort, $reqUser, $reqPass, $reqDb);
@@ -212,7 +212,10 @@ if ($route === '/api/connect' || $routeClean === 'connect') {
             ]
         ]);
     } catch (\Throwable $e) {
-        sendJson(['success' => false, 'error' => 'Αποτυχία σύνδεσης: ' . $e->getMessage()], 200);
+        sendJson([
+            'success' => false,
+            'error' => 'Αποτυχία σύνδεσης PDO: ' . $e->getMessage()
+        ], 200);
     }
 }
 
