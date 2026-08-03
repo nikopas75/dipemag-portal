@@ -28,13 +28,13 @@ foreach ($hostsToTest as $host => $label) {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_TIMEOUT => 5
         ]);
-        echo "<span style=\"color:green\">ΕΠΙΤΥΧΙΑ! (Σύνδεση $host OK)</span>";
+        echo "<span style="color:green">ΕΠΙΤΥΧΙΑ! (Σύνδεση $host OK)</span>";
         
         $stmt = $pdo->query("SELECT VERSION() as v");
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         echo "<br><em>MySQL Version: " . htmlspecialchars($row['v'] ?? 'Unknown') . "</em>";
     } catch (\PDOException $e) {
-        echo "<span style=\"color:red\">ΑΠΟΤΥΧΙΑ: " . htmlspecialchars($e->getMessage()) . " (Code: " . $e->getCode() . ")</span>";
+        echo "<span style="color:red">ΑΠΟΤΥΧΙΑ: " . htmlspecialchars($e->getMessage()) . " (Code: " . $e->getCode() . ")</span>";
     }
     echo "</li><br>";
 }

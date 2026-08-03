@@ -500,6 +500,11 @@ function saveSettingValue($pdo, $keyName, $val) {
     }
 }
 
+// GET /api/logs
+if ($route === '/api/logs' || $routeClean === 'logs') {
+    sendJson([]);
+}
+
 // GET & POST /api/plinetamag/admins
 if ($route === '/api/plinetamag/admins') {
     if ($method === 'GET') {
@@ -554,13 +559,32 @@ function selectProgrammatismosDb($pdo) {
     static $attempted = false;
     if ($attempted) return;
     $attempted = true;
+    if (!$pdo) return;
+
+    // First check if dim_users is already in current active database
     try {
-        $pdo->exec("USE programmatismos");
-    } catch (\Exception $e) {
+        $check = $pdo->query("SHOW TABLES LIKE 'dim_users'");
+        if ($check && $check->fetch()) {
+            return; // Found in current database!
+        }
+    } catch (\Throwable $e) {}
+
+    // Check candidate databases on MySQL server
+    $candidateDbs = ['programmatismos', 'prog_sch_db', 'e_aitisi'];
+    foreach ($candidateDbs as $cdb) {
         try {
-            $pdo->exec("USE prog_sch_db");
-        } catch (\Exception $e2) {}
+            $pdo->exec("USE `$cdb`");
+            $check = $pdo->query("SHOW TABLES LIKE 'dim_users'");
+            if ($check && $check->fetch()) {
+                return; // Switched to database containing dim_users!
+            }
+        } catch (\Throwable $e) {}
     }
+
+    // Fallback: restore default DB
+    try {
+        $pdo->exec("USE `" . DB_NAME . "`");
+    } catch (\Throwable $e) {}
 }
 
 function getProgrammatismosTables($type) {
