@@ -34,21 +34,30 @@ function getDbConnection($customHost = null, $customPort = null, $customUser = n
     }
 
     if ($pdo === null) {
-        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        try {
-            $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-        } catch (\PDOException $e) {
-            header('Content-Type: application/json; charset=utf-8');
-            http_response_code(500);
-            echo json_encode([
-                'success' => false,
-                'error' => 'Αποτυχία σύνδεσης στη βάση δεδομένων MySQL: ' . $e->getMessage()
-            ], JSON_UNESCAPED_UNICODE);
-            exit;
+        $hostsToTry = [DB_HOST, 'localhost', '127.0.0.1'];
+        $charsetsToTry = [DB_CHARSET, 'utf8'];
+        $lastException = null;
+
+        foreach ($hostsToTry as $tryHost) {
+            foreach ($charsetsToTry as $tryCharset) {
+                try {
+                    $dsn = "mysql:host=" . $tryHost . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=" . $tryCharset;
+                    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+                    return $pdo; // Successful connection!
+                } catch (\PDOException $e) {
+                    $lastException = $e;
+                }
+            }
         }
+
+        // If all fallback attempts failed, return JSON error with details
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Αποτυχία σύνδεσης στη βάση δεδομένων MySQL (' . DB_HOST . ' / localhost): ' . ($lastException ? $lastException->getMessage() : 'Άγνωστο σφάλμα')
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
     }
     return $pdo;
 }
-
-
-
