@@ -1307,7 +1307,6 @@ async function startServer() {
   app.get('/api/programmatismos/admins', async (req, res) => {
     try {
       if (dbConfig.mode === 'external' && externalPool) {
-        await externalPool.query('USE programmatismos;');
         await externalPool.query(`
           CREATE TABLE IF NOT EXISTS programmatismos.settings (
             key_name VARCHAR(100) PRIMARY KEY,
@@ -1335,7 +1334,6 @@ async function startServer() {
       embeddedProgrammatismosSettings.admins = adminsStr;
 
       if (dbConfig.mode === 'external' && externalPool) {
-        await externalPool.query('USE programmatismos;');
         await externalPool.query(`
           CREATE TABLE IF NOT EXISTS programmatismos.settings (
             key_name VARCHAR(100) PRIMARY KEY,
@@ -1358,8 +1356,7 @@ async function startServer() {
       if (!externalPool) {
         return res.json({ connected: false, message: 'Δεν έχει συνδεθεί η MySQL' });
       }
-      await externalPool.query('USE programmatismos;');
-      const [rows]: any = await externalPool.query('SELECT COUNT(*) as count FROM dim_users;');
+      const [rows]: any = await externalPool.query('SELECT COUNT(*) as count FROM programmatismos.dim_users;');
       res.json({
         connected: true,
         database: 'programmatismos',
@@ -1377,7 +1374,6 @@ async function startServer() {
         return res.status(500).json({ error: 'No MySQL pool' });
       }
       const tableName = req.params.table || 'dim_data_math';
-      await externalPool.query('USE programmatismos;');
       const [columns]: any = await externalPool.query(
         `SELECT COLUMN_NAME, COLUMN_COMMENT, DATA_TYPE, COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'programmatismos' AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION;`,
         [tableName]
@@ -1394,7 +1390,6 @@ async function startServer() {
       if (!externalPool) {
         return res.status(500).json({ error: 'No MySQL pool available' });
       }
-      await externalPool.query('USE programmatismos;');
       
       let tableName = 'dim_users';
       if (type === 'eidika_nip' || type === 'eid_nip') tableName = 'eid_nip_users';
@@ -1403,20 +1398,20 @@ async function startServer() {
 
       try {
         const [schools]: any = await externalPool.query(
-          `SELECT SchID, SchCode, SchName, Organ, Location, PrID, PrName FROM ${tableName} ORDER BY SchID ASC, SchName ASC;`
+          `SELECT SchID, SchCode, SchName, Organ, Location, PrID, PrName FROM programmatismos.${tableName} ORDER BY SchID ASC, SchName ASC;`
         );
         return res.json(schools);
       } catch (tableErr) {
         if (tableName === 'eid_dim_users') {
           try {
             const [schools]: any = await externalPool.query(
-              'SELECT SchID, SchCode, SchName, Organ, Location, PrID, PrName FROM eid_users ORDER BY SchID ASC, SchName ASC;'
+              'SELECT SchID, SchCode, SchName, Organ, Location, PrID, PrName FROM programmatismos.eid_users ORDER BY SchID ASC, SchName ASC;'
             );
             return res.json(schools);
           } catch (e) {}
         }
         const [schools]: any = await externalPool.query(
-          'SELECT SchID, SchCode, SchName, Organ, Location, PrID, PrName FROM dim_users ORDER BY SchID ASC, SchName ASC;'
+          'SELECT SchID, SchCode, SchName, Organ, Location, PrID, PrName FROM programmatismos.dim_users ORDER BY SchID ASC, SchName ASC;'
         );
         return res.json(schools);
       }
@@ -1444,7 +1439,6 @@ async function startServer() {
         return res.status(500).json({ success: false, error: 'MySQL server non accessible' });
       }
 
-      await externalPool.query('USE programmatismos;');
       const reqType = (type || category || '').toString();
       let tableName = 'dim_users';
       if (reqType.includes('eid') && reqType.includes('nip')) tableName = 'eid_nip_users';
@@ -1452,7 +1446,7 @@ async function startServer() {
       else if (reqType.startsWith('nip')) tableName = 'nip_users';
 
       let [users]: any = await externalPool.query(
-        `SELECT * FROM ${tableName} WHERE SchCode = ? OR PrID = ? LIMIT 1;`,
+        `SELECT * FROM programmatismos.${tableName} WHERE SchCode = ? OR PrID = ? LIMIT 1;`,
         [schCode, schCode]
       );
 
@@ -1466,7 +1460,7 @@ async function startServer() {
         ].filter(t => t.u !== tableName);
         for (const st of searchTables) {
           try {
-            const [found]: any = await externalPool.query(`SELECT * FROM ${st.u} WHERE SchCode = ? OR PrID = ? LIMIT 1;`, [schCode, schCode]);
+            const [found]: any = await externalPool.query(`SELECT * FROM programmatismos.${st.u} WHERE SchCode = ? OR PrID = ? LIMIT 1;`, [schCode, schCode]);
             if (found && found.length > 0) {
               users = found;
               break;
@@ -1476,121 +1470,10 @@ async function startServer() {
       }
 
       if (!users || users.length === 0) {
-        return res.status(404).json({ success: false, error: 'Δεν βρέθηκε σχολική μονάδα με αυτόν τον κωδικό' });
+        return res.status(404).json({ error: 'Δεν βρέθηκε η σχολική μονάδα' });
       }
 
-      const school = users[0];
-      res.json({
-        success: true,
-        role: 'director',
-        school: {
-          SchID: school.SchID,
-          SchCode: school.SchCode,
-          SchName: school.SchName,
-          Organ: school.Organ,
-          Location: school.Location,
-          PrID: school.PrID,
-          PrName: school.PrName
-        }
-      });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  app.get('/api/programmatismos/school/:schCode', async (req, res) => {
-    const { schCode } = req.params;
-    const type = (req.query.type || req.query.category || '').toString();
-    try {
-      if (!externalPool) {
-        return res.status(500).json({ error: 'No MySQL connection' });
-      }
-      await externalPool.query('USE programmatismos;');
-
-      let cat = 'dim';
-      if (type.includes('eid') && type.includes('nip')) cat = 'eid_nip';
-      else if (type.includes('eid')) cat = 'eid_dim';
-      else if (type.startsWith('nip')) cat = 'nip';
-
-      let userTable = 'dim_users';
-      let mathTable = 'dim_data_math';
-      let ekpTable: string | null = 'dim_data_ekp';
-
-      if (cat === 'nip') {
-        userTable = 'nip_users';
-        mathTable = 'nip_data_math';
-        ekpTable = null;
-      } else if (cat === 'eid_nip') {
-        userTable = 'eid_nip_users';
-        mathTable = 'eid_nip_data_math';
-        ekpTable = null;
-      } else if (cat === 'eid_dim' || cat === 'eid') {
-        userTable = 'eid_dim_users';
-        mathTable = 'eid_dim_data_math';
-        ekpTable = 'eid_dim_data_ekp';
-      }
-
-      let [users]: any = await externalPool.query(`SELECT * FROM ${userTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
-      if (!users || users.length === 0) {
-        const allSearchTables = [
-          { u: 'dim_users', m: 'dim_data_math', e: 'dim_data_ekp', c: 'dim' },
-          { u: 'nip_users', m: 'nip_data_math', e: null, c: 'nip' },
-          { u: 'eid_dim_users', m: 'eid_dim_data_math', e: 'eid_dim_data_ekp', c: 'eid_dim' },
-          { u: 'eid_nip_users', m: 'eid_nip_data_math', e: null, c: 'eid_nip' },
-          { u: 'eid_users', m: 'eid_data_math', e: 'eid_data_ekp', c: 'eid' }
-        ];
-        const searchTables = allSearchTables.filter(st => st.u !== userTable);
-        for (const st of searchTables) {
-          try {
-            const [found]: any = await externalPool.query(`SELECT * FROM ${st.u} WHERE SchCode = ? LIMIT 1;`, [schCode]);
-            if (found && found.length > 0) {
-              users = found;
-              mathTable = st.m;
-              ekpTable = st.e;
-              cat = st.c;
-              break;
-            }
-          } catch (e) {}
-        }
-      }
-
-      if (!users || users.length === 0) {
-        return res.status(404).json({ error: 'School not found' });
-      }
-      const school = users[0];
-
-      let mathData = null;
-      if (mathTable) {
-        try {
-          const [mathRows]: any = await externalPool.query(`SELECT * FROM ${mathTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
-          mathData = mathRows[0] || null;
-        } catch (mErr) {
-          if (mathTable === 'eid_dim_data_math') {
-            const [mathRows]: any = await externalPool.query(`SELECT * FROM eid_data_math WHERE SchCode = ? LIMIT 1;`, [schCode]);
-            mathData = mathRows[0] || null;
-          }
-        }
-      }
-
-      let ekpData = null;
-      if (ekpTable) {
-        try {
-          const [ekpRows]: any = await externalPool.query(`SELECT * FROM ${ekpTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
-          ekpData = ekpRows[0] || null;
-        } catch (eErr) {
-          if (ekpTable === 'eid_dim_data_ekp') {
-            const [ekpRows]: any = await externalPool.query(`SELECT * FROM eid_data_ekp WHERE SchCode = ? LIMIT 1;`, [schCode]);
-            ekpData = ekpRows[0] || null;
-          }
-        }
-      }
-
-      res.json({
-        category: cat,
-        school,
-        mathData,
-        ekpData
-      });
+      res.json(users[0]);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1602,7 +1485,6 @@ async function startServer() {
       if (!externalPool) {
         return res.status(500).json({ success: false, error: 'No MySQL pool' });
       }
-      await externalPool.query('USE programmatismos;');
 
       let cat = 'dim';
       if (category === 'eid_nip' || category === 'eidika_nip') cat = 'eid_nip';
@@ -1612,10 +1494,10 @@ async function startServer() {
       // 1. SAVE MATH DATA
       if (mathData) {
         if (cat === 'nip') {
-          const [existingMath]: any = await externalPool.query('SELECT dataID FROM nip_data_math WHERE SchCode = ? LIMIT 1;', [schCode]);
+          const [existingMath]: any = await externalPool.query('SELECT dataID FROM programmatismos.nip_data_math WHERE SchCode = ? LIMIT 1;', [schCode]);
           if (existingMath && existingMath.length > 0) {
             const updateSql = `
-              UPDATE nip_data_math SET
+              UPDATE programmatismos.nip_data_math SET
                 StuA=?, StuB=?, StuTotal=?, StuPY=?, StuOloA=?, StuOloB=?, StuOloTotal=?,
                 StuTE=?, StuApor=?, Parat=?, TimeStamp=NOW()
               WHERE SchCode = ?;
@@ -1627,7 +1509,7 @@ async function startServer() {
             ]);
           } else {
             const insertSql = `
-              INSERT INTO nip_data_math
+              INSERT INTO programmatismos.nip_data_math
                 (SchID, SchCode, SchName, StuA, StuB, StuTotal, StuPY, StuOloA, StuOloB, StuOloTotal,
                  StuTE, StuApor, Parat, TimeStamp)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW());
@@ -1640,10 +1522,10 @@ async function startServer() {
             ]);
           }
         } else if (cat === 'eid_nip') {
-          const [existingMath]: any = await externalPool.query('SELECT dataID FROM eid_nip_data_math WHERE SchCode = ? LIMIT 1;', [schCode]);
+          const [existingMath]: any = await externalPool.query('SELECT dataID FROM programmatismos.eid_nip_data_math WHERE SchCode = ? LIMIT 1;', [schCode]);
           if (existingMath && existingMath.length > 0) {
             const updateSql = `
-              UPDATE eid_nip_data_math SET
+              UPDATE programmatismos.eid_nip_data_math SET
                 StuA=?, StuB=?, StuTotal=?, StuPY=?, StuOloA=?, StuOloB=?, StuOloTotal=?,
                 StuTE=?, StuApor=?, DE1EVP=?, PE21=?, PE23=?, PE25=?, PE26=?, PE28=?, PE29=?, PE30=?,
                 Parat=?, TimeStamp=NOW()
@@ -1656,7 +1538,7 @@ async function startServer() {
             ]);
           } else {
             const insertSql = `
-              INSERT INTO eid_nip_data_math
+              INSERT INTO programmatismos.eid_nip_data_math
                 (SchID, SchCode, SchName, StuA, StuB, StuTotal, StuPY, StuOloA, StuOloB, StuOloTotal,
                  StuTE, StuApor, DE1EVP, PE21, PE23, PE25, PE26, PE28, PE29, PE30, Parat, TimeStamp)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW());
@@ -1672,17 +1554,17 @@ async function startServer() {
           let mathTable = 'eid_dim_data_math';
           let [existingMath]: any = [];
           try {
-            const [rows]: any = await externalPool.query(`SELECT dataID FROM ${mathTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
+            const [rows]: any = await externalPool.query(`SELECT dataID FROM programmatismos.${mathTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
             existingMath = rows;
           } catch (mErr) {
             mathTable = 'eid_data_math';
-            const [rows]: any = await externalPool.query(`SELECT dataID FROM ${mathTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
+            const [rows]: any = await externalPool.query(`SELECT dataID FROM programmatismos.${mathTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
             existingMath = rows;
           }
 
           if (existingMath && existingMath.length > 0) {
             const updateSql = `
-              UPDATE ${mathTable} SET
+              UPDATE programmatismos.${mathTable} SET
                 StuProp=?, StuA=?, StuB=?, StuC=?, StuD=?, StuE=?, StuF=?, StuTotal=?,
                 ClassProp=?, ClassA=?, ClassB=?, ClassC=?, ClassD=?, ClassE=?, ClassF=?, ClassTotal=?,
                 StuOloPZ=?, StuOlo=?, Parat=?, TimeStamp=NOW()
@@ -1695,7 +1577,7 @@ async function startServer() {
             ]);
           } else {
             const insertSql = `
-              INSERT INTO ${mathTable}
+              INSERT INTO programmatismos.${mathTable}
                 (SchID, SchCode, SchName, StuProp, StuA, StuB, StuC, StuD, StuE, StuF, StuTotal,
                  ClassProp, ClassA, ClassB, ClassC, ClassD, ClassE, ClassF, ClassTotal,
                  StuOloPZ, StuOlo, Parat, TimeStamp)
@@ -1710,10 +1592,10 @@ async function startServer() {
           }
         } else {
           // Default: Δημοτικά
-          const [existingMath]: any = await externalPool.query('SELECT dataID FROM dim_data_math WHERE SchCode = ? LIMIT 1;', [schCode]);
+          const [existingMath]: any = await externalPool.query('SELECT dataID FROM programmatismos.dim_data_math WHERE SchCode = ? LIMIT 1;', [schCode]);
           if (existingMath && existingMath.length > 0) {
             const updateSql = `
-              UPDATE dim_data_math SET
+              UPDATE programmatismos.dim_data_math SET
                 StuA=?, StuB=?, StuC=?, StuD=?, StuE=?, StuF=?, StuTotal=?,
                 ClassA=?, ClassB=?, ClassC=?, ClassD=?, ClassE=?, ClassF=?, ClassTotal=?,
                 OloType=?, StuOloPZ=?, StuOloZ1=?, StuOloZ2=?, StuOloZ3=?, StuOloTotal=?,
@@ -1729,7 +1611,7 @@ async function startServer() {
             ]);
           } else {
             const insertSql = `
-              INSERT INTO dim_data_math
+              INSERT INTO programmatismos.dim_data_math
                 (SchID, SchCode, SchName, StuA, StuB, StuC, StuD, StuE, StuF, StuTotal,
                  ClassA, ClassB, ClassC, ClassD, ClassE, ClassF, ClassTotal,
                  OloType, StuOloPZ, StuOloZ1, StuOloZ2, StuOloZ3, StuOloTotal,
@@ -1753,13 +1635,13 @@ async function startServer() {
         let ekpTable = isEid ? 'eid_dim_data_ekp' : 'dim_data_ekp';
         let existingEkp: any[] = [];
         try {
-          const [rows]: any = await externalPool.query(`SELECT dataID FROM ${ekpTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
+          const [rows]: any = await externalPool.query(`SELECT dataID FROM programmatismos.${ekpTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
           existingEkp = rows;
         } catch (e1) {
           if (isEid) {
             ekpTable = 'eid_data_ekp';
             try {
-              const [rows]: any = await externalPool.query(`SELECT dataID FROM ${ekpTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
+              const [rows]: any = await externalPool.query(`SELECT dataID FROM programmatismos.${ekpTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
               existingEkp = rows;
             } catch (e2) {}
           }
@@ -1768,7 +1650,7 @@ async function startServer() {
         if (isEid) {
           if (existingEkp && existingEkp.length > 0) {
             const updateEkpSql = `
-              UPDATE ${ekpTable} SET
+              UPDATE programmatismos.${ekpTable} SET
                 DiaPE70=?, DiaPE05=?, DiaPE06=?, DiaPE07=?, DiaPE08=?, DiaPE11=?, DiaPE79=?, DiaPE86=?, DiaPE91=?, DiaTotal=?,
                 ProPE70=?, ProPE05=?, ProPE06=?, ProPE07=?, ProPE08=?, ProPE11=?, ProPE79=?, ProPE86=?, ProPE91=?, ProTotal=?,
                 EZPE70=?, EZPE05=?, EZPE06=?, EZPE07=?, EZPE08=?, EZPE11=?, EZPE79=?, EZPE86=?, EZPE91=?, EZTotal=?,
@@ -1793,7 +1675,7 @@ async function startServer() {
             ]);
           } else {
             const insertEkpSql = `
-              INSERT INTO ${ekpTable}
+              INSERT INTO programmatismos.${ekpTable}
                 (SchID, SchCode, SchName,
                  DiaPE70, DiaPE05, DiaPE06, DiaPE07, DiaPE08, DiaPE11, DiaPE79, DiaPE86, DiaPE91, DiaTotal,
                  ProPE70, ProPE05, ProPE06, ProPE07, ProPE08, ProPE11, ProPE79, ProPE86, ProPE91, ProTotal,
@@ -1803,7 +1685,7 @@ async function startServer() {
                  SitPE70, SitPE05, SitPE06, SitPE07, SitPE08, SitPE11, SitPE79, SitPE86, SitPE91, SitTotal,
                  BibPE70, BibPE05, BibPE06, BibPE07, BibPE08, BibPE11, BibPE79, BibPE86, BibPE91, BibTotal,
                  DE1EVP, PE21, PE23, PE25, PE26, PE28, PE29, PE30, Parat, TimeStamp)
-              VALUES (?, ?, ?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?, ?, NOW());
+              VALUES (?, ?, ?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?, ?, NOW());
             `;
             await externalPool.query(insertEkpSql, [
               ekpData.SchID || 1, schCode, ekpData.SchName || '',
@@ -1821,7 +1703,7 @@ async function startServer() {
         } else {
           if (existingEkp && existingEkp.length > 0) {
             const updateEkpSql = `
-              UPDATE dim_data_ekp SET
+              UPDATE programmatismos.dim_data_ekp SET
                 DiaPE70=?, DiaPE05=?, DiaPE06=?, DiaPE07=?, DiaPE08=?, DiaPE11=?, DiaPE79=?, DiaPE86=?, DiaPE91=?, DiaTotal=?,
                 ProPE70=?, ProPE05=?, ProPE06=?, ProPE07=?, ProPE08=?, ProPE11=?, ProPE79=?, ProPE86=?, ProPE91=?, ProTotal=?,
                 EZPE70=?, EZPE05=?, EZPE06=?, EZPE07=?, EZPE08=?, EZPE11=?, EZPE79=?, EZPE86=?, EZPE91=?, EZTotal=?,
@@ -1845,7 +1727,7 @@ async function startServer() {
             ]);
           } else {
             const insertEkpSql = `
-              INSERT INTO dim_data_ekp
+              INSERT INTO programmatismos.dim_data_ekp
                 (SchID, SchCode, SchName,
                  DiaPE70, DiaPE05, DiaPE06, DiaPE07, DiaPE08, DiaPE11, DiaPE79, DiaPE86, DiaPE91, DiaTotal,
                  ProPE70, ProPE05, ProPE06, ProPE07, ProPE08, ProPE11, ProPE79, ProPE86, ProPE91, ProTotal,
@@ -1884,7 +1766,6 @@ async function startServer() {
       if (!externalPool) {
         return res.status(500).json({ error: 'No MySQL pool' });
       }
-      await externalPool.query('USE programmatismos;');
 
       let records: any[] = [];
 
@@ -1894,9 +1775,9 @@ async function startServer() {
             SELECT u.SchID, u.SchCode, u.SchName, u.PrName, u.Organ, u.Location, 'dim' as category,
                    m.StuTotal, m.ClassTotal, m.TimeStamp as MathTimeStamp,
                    e.DiaTotal, e.ProTotal, e.TimeStamp as EkpTimeStamp
-            FROM dim_users u
-            LEFT JOIN dim_data_math m ON u.SchCode = m.SchCode
-            LEFT JOIN dim_data_ekp e ON u.SchCode = e.SchCode
+            FROM programmatismos.dim_users u
+            LEFT JOIN programmatismos.dim_data_math m ON u.SchCode = m.SchCode
+            LEFT JOIN programmatismos.dim_data_ekp e ON u.SchCode = e.SchCode
             ORDER BY u.SchID ASC;
           `);
           records = records.concat(rows);
@@ -1909,8 +1790,8 @@ async function startServer() {
             SELECT u.SchID, u.SchCode, u.SchName, u.PrName, u.Organ, u.Location, 'nip' as category,
                    m.StuTotal, 0 as ClassTotal, m.TimeStamp as MathTimeStamp,
                    0 as DiaTotal, 0 as ProTotal, NULL as EkpTimeStamp
-            FROM nip_users u
-            LEFT JOIN nip_data_math m ON u.SchCode = m.SchCode
+            FROM programmatismos.nip_users u
+            LEFT JOIN programmatismos.nip_data_math m ON u.SchCode = m.SchCode
             ORDER BY u.SchID ASC;
           `);
           records = records.concat(rows);
@@ -1923,9 +1804,9 @@ async function startServer() {
             SELECT u.SchID, u.SchCode, u.SchName, u.PrName, u.Organ, u.Location, 'eid_dim' as category,
                    m.StuTotal, m.ClassTotal, m.TimeStamp as MathTimeStamp,
                    e.DiaTotal, e.ProTotal, e.TimeStamp as EkpTimeStamp
-            FROM eid_dim_users u
-            LEFT JOIN eid_dim_data_math m ON u.SchCode = m.SchCode
-            LEFT JOIN eid_dim_data_ekp e ON u.SchCode = e.SchCode
+            FROM programmatismos.eid_dim_users u
+            LEFT JOIN programmatismos.eid_dim_data_math m ON u.SchCode = m.SchCode
+            LEFT JOIN programmatismos.eid_dim_data_ekp e ON u.SchCode = e.SchCode
             ORDER BY u.SchID ASC;
           `);
           records = records.concat(rows);
@@ -1935,9 +1816,9 @@ async function startServer() {
               SELECT u.SchID, u.SchCode, u.SchName, u.PrName, u.Organ, u.Location, 'eid_dim' as category,
                      m.StuTotal, m.ClassTotal, m.TimeStamp as MathTimeStamp,
                      e.DiaTotal, e.ProTotal, e.TimeStamp as EkpTimeStamp
-              FROM eid_users u
-              LEFT JOIN eid_data_math m ON u.SchCode = m.SchCode
-              LEFT JOIN eid_data_ekp e ON u.SchCode = e.SchCode
+              FROM programmatismos.eid_users u
+              LEFT JOIN programmatismos.eid_data_math m ON u.SchCode = m.SchCode
+              LEFT JOIN programmatismos.eid_data_ekp e ON u.SchCode = e.SchCode
               ORDER BY u.SchID ASC;
             `);
             records = records.concat(rows);
@@ -1951,8 +1832,8 @@ async function startServer() {
             SELECT u.SchID, u.SchCode, u.SchName, u.PrName, u.Organ, u.Location, 'eid_nip' as category,
                    m.StuTotal, 0 as ClassTotal, m.TimeStamp as MathTimeStamp,
                    0 as DiaTotal, 0 as ProTotal, NULL as EkpTimeStamp
-            FROM eid_nip_users u
-            LEFT JOIN eid_nip_data_math m ON u.SchCode = m.SchCode
+            FROM programmatismos.eid_nip_users u
+            LEFT JOIN programmatismos.eid_nip_data_math m ON u.SchCode = m.SchCode
             ORDER BY u.SchID ASC;
           `);
           records = records.concat(rows);
@@ -1973,7 +1854,6 @@ async function startServer() {
       if (!externalPool) {
         return res.status(500).json({ error: 'No MySQL pool' });
       }
-      await externalPool.query('USE programmatismos;');
 
       let records: any[] = [];
       const userTables = [
@@ -1987,7 +1867,7 @@ async function startServer() {
         try {
           const [rows]: any = await externalPool.query(`
             SELECT SchID, SchCode, SchName, PrID, PrName, Organ, Location, Password, '${t.name}' as sourceTable, '${t.category}' as category
-            FROM ${t.name}
+            FROM programmatismos.${t.name}
             ORDER BY SchID ASC;
           `);
           records = records.concat(rows);
@@ -1996,7 +1876,7 @@ async function startServer() {
             try {
               const [rows]: any = await externalPool.query(`
                 SELECT SchID, SchCode, SchName, PrID, PrName, Organ, Location, Password, 'eid_users' as sourceTable, 'eid_dim' as category
-                FROM eid_users
+                FROM programmatismos.eid_users
                 ORDER BY SchID ASC;
               `);
               records = records.concat(rows);
@@ -2019,7 +1899,6 @@ async function startServer() {
       if (!externalPool) {
         return res.status(500).json({ success: false, error: 'No MySQL pool' });
       }
-      await externalPool.query('USE programmatismos;');
 
       const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
       const targetTable = allowedTables.includes(table) ? table : 'dim_users';
@@ -2042,13 +1921,13 @@ async function startServer() {
 
       if (SchID && Number(SchID) > 0) {
         await externalPool.query(
-          `UPDATE ${targetTable} SET SchCode = ?, SchName = ?, PrID = ?, PrName = ?, Organ = ?, Location = ?, Password = ? WHERE SchID = ?;`,
+          `UPDATE programmatismos.${targetTable} SET SchCode = ?, SchName = ?, PrID = ?, PrName = ?, Organ = ?, Location = ?, Password = ? WHERE SchID = ?;`,
           [cleanSchCode, cleanSchName, cleanPrID, cleanPrName, cleanOrgan, cleanLocation, passMd5, Number(SchID)]
         );
         res.json({ success: true, message: `Η σχολική μονάδα "${cleanSchName}" ενημερώθηκε επιτυχώς στον πίνακα ${targetTable}!` });
       } else {
         const [result]: any = await externalPool.query(
-          `INSERT INTO ${targetTable} (SchCode, SchName, PrID, PrName, Organ, Location, Password) VALUES (?, ?, ?, ?, ?, ?, ?);`,
+          `INSERT INTO programmatismos.${targetTable} (SchCode, SchName, PrID, PrName, Organ, Location, Password) VALUES (?, ?, ?, ?, ?, ?, ?);`,
           [cleanSchCode, cleanSchName, cleanPrID, cleanPrName, cleanOrgan, cleanLocation, passMd5]
         );
         res.json({ success: true, message: `Η νέα σχολική μονάδα "${cleanSchName}" δημιουργήθηκε επιτυχώς στον πίνακα ${targetTable}!`, SchID: result.insertId });
@@ -2065,15 +1944,14 @@ async function startServer() {
       if (!externalPool) {
         return res.status(500).json({ success: false, error: 'No MySQL pool' });
       }
-      await externalPool.query('USE programmatismos;');
 
       const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
       const targetTable = allowedTables.includes(table) ? table : 'dim_users';
 
       if (SchID && Number(SchID) > 0) {
-        await externalPool.query(`DELETE FROM ${targetTable} WHERE SchID = ?;`, [Number(SchID)]);
+        await externalPool.query(`DELETE FROM programmatismos.${targetTable} WHERE SchID = ?;`, [Number(SchID)]);
       } else if (SchCode) {
-        await externalPool.query(`DELETE FROM ${targetTable} WHERE SchCode = ?;`, [String(SchCode).trim()]);
+        await externalPool.query(`DELETE FROM programmatismos.${targetTable} WHERE SchCode = ?;`, [String(SchCode).trim()]);
       } else {
         return res.status(400).json({ success: false, error: 'Δεν ορίστηκε SchID ή SchCode για διαγραφή.' });
       }
@@ -2090,7 +1968,6 @@ async function startServer() {
       if (!externalPool) {
         return res.status(500).send('No MySQL pool');
       }
-      await externalPool.query('USE programmatismos;');
       const tableName = (table || 'dim_data_math').toString();
       
       const allowedTables = [
@@ -2104,7 +1981,7 @@ async function startServer() {
         return res.status(400).send('Invalid table specified for export');
       }
 
-      const [rows, fields]: any = await externalPool.query(`SELECT * FROM ${tableName};`);
+      const [rows, fields]: any = await externalPool.query(`SELECT * FROM programmatismos.${tableName};`);
       
       const rawHeaders = fields ? fields.map((f: any) => f.name) : (rows.length > 0 ? Object.keys(rows[0]) : []);
       const headers = rawHeaders.filter((h: string) => h !== 'dataID');
@@ -2159,7 +2036,6 @@ async function startServer() {
       if (!externalPool) {
         return res.status(500).json({ error: 'No MySQL pool connection' });
       }
-      await externalPool.query('USE programmatismos;');
       const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'];
       
       let targetTables: string[] = [];
@@ -2203,7 +2079,7 @@ async function startServer() {
 
         let rowUpdated = false;
         for (const tbl of targetTables) {
-          let sql = `UPDATE ${tbl} SET PrName = ?, PrID = ?`;
+          let sql = `UPDATE programmatismos.${tbl} SET PrName = ?, PrID = ?`;
           const params: any[] = [prName, prId];
 
           if (updatePasswordMd5 !== false) {
@@ -2247,19 +2123,18 @@ async function startServer() {
       if (!externalPool) {
         return res.status(500).json({ error: 'No MySQL pool connection' });
       }
-      await externalPool.query('USE programmatismos;');
 
       const resetDataTable = async (dataTable: string, userTable: string) => {
         // Check if data table exists
-        const [dTblExists]: any = await externalPool.query(`SHOW TABLES LIKE ?;`, [dataTable]);
+        const [dTblExists]: any = await externalPool.query(`SHOW TABLES FROM programmatismos LIKE ?;`, [dataTable]);
         if (!dTblExists || dTblExists.length === 0) return { table: dataTable, resetCount: 0, skipped: true };
 
         // Check if user table exists
-        const [uTblExists]: any = await externalPool.query(`SHOW TABLES LIKE ?;`, [userTable]);
+        const [uTblExists]: any = await externalPool.query(`SHOW TABLES FROM programmatismos LIKE ?;`, [userTable]);
         if (!uTblExists || uTblExists.length === 0) return { table: dataTable, resetCount: 0, skipped: true };
 
         // Inspect columns of data table
-        const [cols]: any = await externalPool.query(`SHOW COLUMNS FROM ${dataTable};`);
+        const [cols]: any = await externalPool.query(`SHOW COLUMNS FROM programmatismos.${dataTable};`);
         const insertCols: string[] = [];
         const colTypes: { [key: string]: 'id' | 'code' | 'name' | 'time' | 'num' | 'text' } = {};
 
@@ -2281,16 +2156,16 @@ async function startServer() {
         }
 
         // Delete all existing data rows
-        await externalPool.query(`DELETE FROM ${dataTable};`);
+        await externalPool.query(`DELETE FROM programmatismos.${dataTable};`);
 
         // Fetch users from userTable
-        const [users]: any = await externalPool.query(`SELECT SchID, SchCode, SchName FROM ${userTable};`);
+        const [users]: any = await externalPool.query(`SELECT SchID, SchCode, SchName FROM programmatismos.${userTable};`);
         if (!users || users.length === 0) {
           return { table: dataTable, resetCount: 0, skipped: false };
         }
 
         const placeHolders = insertCols.map(() => '?').join(', ');
-        const insertSql = `INSERT INTO ${dataTable} (${insertCols.join(', ')}) VALUES (${placeHolders});`;
+        const insertSql = `INSERT INTO programmatismos.${dataTable} (${insertCols.join(', ')}) VALUES (${placeHolders});`;
 
         let insertedCount = 0;
         for (const u of users) {
@@ -2314,14 +2189,14 @@ async function startServer() {
 
       const resetCategoryTables = async (dataTbls: string[], fallbackDataTbls: string[], userTbl: string, fallbackUserTbl: string) => {
         let uTable = userTbl;
-        const [uTblExists]: any = await externalPool.query(`SHOW TABLES LIKE ?;`, [userTbl]);
+        const [uTblExists]: any = await externalPool.query(`SHOW TABLES FROM programmatismos LIKE ?;`, [userTbl]);
         if (!uTblExists || uTblExists.length === 0) {
           if (fallbackUserTbl) uTable = fallbackUserTbl;
         }
 
         for (let i = 0; i < dataTbls.length; i++) {
           let dTable = dataTbls[i];
-          const [dTblExists]: any = await externalPool.query(`SHOW TABLES LIKE ?;`, [dTable]);
+          const [dTblExists]: any = await externalPool.query(`SHOW TABLES FROM programmatismos LIKE ?;`, [dTable]);
           if (!dTblExists || dTblExists.length === 0) {
             if (fallbackDataTbls[i]) dTable = fallbackDataTbls[i];
           }
