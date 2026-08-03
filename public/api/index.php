@@ -244,7 +244,7 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
             if ($semiIndex !== false) {
                 $dbStatement = substr($sqlToRun, 0, $semiIndex + 1);
                 $sqlToRun = trim(substr($sqlToRun, $semiIndex + 1));
-                if (preg_match('/USE\s+[`"']?([a-zA-Z0-9_\-]+)[`"']?/i', $dbStatement, $m)) {
+                if (preg_match('/USE\s+[`"\']?([a-zA-Z0-9_\-]+)[`"\']?/i', $dbStatement, $m)) {
                     $targetDb = $m[1];
                 }
             }
@@ -296,7 +296,7 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
                 
                 // Strategy 1: Search via information_schema (if user has permissions)
                 try {
-                    preg_match_all('/(?:FROM|JOIN|UPDATE|INTO)\s+[`"']?([a-zA-Z0-9_\-]+)[`"']?/i', $sqlToRun, $matches);
+                    preg_match_all('/(?:FROM|JOIN|UPDATE|INTO)\s+[`"\']?([a-zA-Z0-9_\-]+)[`"\']?/i', $sqlToRun, $matches);
                     $extractedTables = $matches[1] ?? [];
                     
                     if (preg_match('/Table\s+\'[^\']+\.([^\']+)\'\s+doesn\'t exist/i', $ex->getMessage(), $errM)) {
