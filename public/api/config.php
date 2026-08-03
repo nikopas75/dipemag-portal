@@ -2,17 +2,20 @@
 /**
  * Configuration for MySQL database on Panhellenic School Network (sch.gr)
  *
- * Ρυθμίσεις σύνδεσης στη Βάση Δεδομένων MySQL του Πανελλήνιου Σχολικού Δικτύου μέσω PDO.
+ * Ρυθμίσεις σύνδεσης στη Βάση Δεδομένων MySQL του Πανελλήνιου Σχολικού Δικτύου.
+ * Τροποποιήστε τα παρακάτω στοιχεία σύμφωνα με τα διαπιστευτήρια που σας δόθηκαν από το sch.gr.
  */
 
-define('DB_HOST', '10.2.49.42');
+define('DB_HOST', '10.2.49.42'); // Συνήθως localhost στο sch.gr
 define('DB_PORT', '3306');
-define('DB_NAME', 'e_aitisi');
-define('DB_USER', 'plinetamag');
-define('DB_PASS', 'Fr9KC7$c4e');
+define('DB_NAME', 'e_aitisi');   // Όνομα Βάσης Δεδομένων
+define('DB_USER', 'plinetamag'); // Όνομα χρήστη Βάσης (MySQL Username)
+define('DB_PASS', 'Fr9KC7$c4e'); // Κωδικός πρόσβασης Βάσης (MySQL Password)
 define('DB_CHARSET', 'utf8mb4');
 
 function getDbConnection($customHost = null, $customPort = null, $customUser = null, $customPass = null, $customDb = null) {
+    static $pdo = null;
+
     $host   = !empty($customHost) ? $customHost : DB_HOST;
     $port   = !empty($customPort) ? $customPort : DB_PORT;
     $user   = !empty($customUser) ? $customUser : DB_USER;
@@ -25,8 +28,19 @@ function getDbConnection($customHost = null, $customPort = null, $customUser = n
         PDO::ATTR_EMULATE_PREPARES   => false,
     ];
 
-    $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
-    return new PDO($dsn, $user, $pass, $options);
+    // Αν δοθούν προσαρμοσμένα στοιχεία (π.χ. δοκιμή από Modal), δημιουργούμε νέο PDO instance
+    if ($customHost !== null || $customUser !== null || $customDb !== null) {
+        $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
+        return new PDO($dsn, $user, $pass, $options);
+    }
+
+    // Διαφορετικά, επιστρέφουμε τη στατική σύνδεση με τα προεπιλεγμένα στοιχεία
+    if ($pdo === null) {
+        $dsn = "mysql:host=" . $host . ";port=" . $port . ";dbname=" . $dbname . ";charset=" . DB_CHARSET;
+        $pdo = new PDO($dsn, $user, $pass, $options);
+    }
+    return $pdo;
 }
+
 
 
