@@ -570,7 +570,7 @@ function selectProgrammatismosDb($pdo) {
     } catch (\Throwable $e) {}
 
     // Check candidate databases on MySQL server
-    $candidateDbs = ['programmatismos', 'prog_sch_db', 'e_aitisi'];
+    $candidateDbs = ['programmatismos', 'e_aitisi', 'axiologisi'];
     foreach ($candidateDbs as $cdb) {
         try {
             $pdo->exec("USE `$cdb`");

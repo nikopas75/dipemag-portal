@@ -6,6 +6,9 @@ export const HARDCODED_DB_DEFAULTS = {
   user: 'plinetamag',
   password: 'Fr9KC7$c4e',
   database: 'e_aitisi',
+  dbAitisi: 'e_aitisi',
+  dbProgrammatismos: 'programmatismos',
+  dbAxiologisi: 'axiologisi',
 } as const;
 
 export const LOCALSTORAGE_KEY = 'eaitisi_db_config';

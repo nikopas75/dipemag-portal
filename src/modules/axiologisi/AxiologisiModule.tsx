@@ -322,7 +322,7 @@ export const AxiologisiModule: React.FC<AxiologisiModuleProps> = ({
                 <div className="flex items-center space-x-2">
                   <Database className="w-4 h-4 text-purple-400" />
                   <span className="font-bold text-xs text-slate-200">
-                    Ρυθμίσεις Συνδεσιμότητας Βάσης Δεδομένων (axiologisi_db)
+                    Ρυθμίσεις Συνδεσιμότητας Βάσης Δεδομένων (axiologisi)
                   </span>
                 </div>
                 <span className="text-[10px] text-purple-400 font-mono">Status: Connected</span>

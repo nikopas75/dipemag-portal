@@ -24,6 +24,39 @@ interface ProgrammatismosModuleProps {
   onUpdateDbConfig?: (cfg: DbConfig) => void;
 }
 
+export const safeApiFetch = async (urlPath: string, options?: RequestInit) => {
+  const cleanRoute = urlPath.replace(/^\/api\//, '').replace(/^api\//, '');
+  const candidateUrls = [
+    urlPath,
+    urlPath.startsWith('/') ? urlPath.substring(1) : urlPath,
+    `api/index.php?route=${cleanRoute}`,
+    `./api/index.php?route=${cleanRoute}`
+  ];
+
+  let lastError = '';
+  for (const candidate of candidateUrls) {
+    try {
+      const res = await fetch(candidate, options);
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        if (res.ok || json.success !== undefined || json.records !== undefined || json.school !== undefined || Array.isArray(json) || json.columns !== undefined || json.rows !== undefined) {
+          return { ok: res.ok, data: json, status: res.status, rawText: text };
+        }
+      } catch (jsonErr) {
+        lastError = text || `HTTP ${res.status} ${res.statusText}`;
+      }
+    } catch (netErr: any) {
+      lastError = netErr.message || String(netErr);
+    }
+  }
+
+  const cleanMsg = lastError.startsWith('<')
+    ? `Μη έγκυρη απόκριση (HTML/PHP): ${lastError.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 140)}...`
+    : (lastError || 'Σφάλμα επικοινωνίας με το διακομιστή');
+  return { ok: false, data: { success: false, error: cleanMsg }, rawText: lastError };
+};
+
 export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () => {
   // Navigation / View State
   const [appRole, setAppRole] = useState<'landing' | 'director' | 'admin'>('landing');
@@ -180,13 +213,13 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
         query = `SELECT '${targetMode}' AS sourceTable, SchID, SchCode, SchName, PrID, PrName FROM programmatismos.${targetMode} ORDER BY SchID ASC;`;
       }
 
-      const res = await fetch('/api/sql/execute', {
+      const res = await safeApiFetch('/api/sql/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query })
       });
-      const data = await res.json();
-      if (data.rows && Array.isArray(data.rows)) {
+      const data = res.data;
+      if (data && data.rows && Array.isArray(data.rows)) {
         setDbCurrentUsers(data.rows);
       } else {
         setDbCurrentUsers([]);
@@ -791,17 +824,14 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
     setSqlError(null);
     setSqlResult(null);
     try {
-      const res = await fetch('/api/sql/execute', {
+      const res = await safeApiFetch('/api/sql/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: sqlQuery })
       });
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        setSqlError('Σφάλμα απόκρισης διακομιστή (Μη έγκυρο JSON): ' + text.substring(0, 150));
+      const data = res.data;
+      if (!data) {
+        setSqlError('Μη έγκυρη απόκριση από το διακομιστή.');
         return;
       }
       if (data.error) {

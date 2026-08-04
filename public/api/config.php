@@ -8,7 +8,10 @@
 
 define('DB_HOST', '10.2.49.42'); // Συνήθως localhost στο sch.gr
 define('DB_PORT', '3306');
-define('DB_NAME', 'e_aitisi');   // Όνομα Βάσης Δεδομένων
+define('DB_NAME', 'e_aitisi');   // Όνομα Προεπιλεγμένης Βάσης Δεδομένων
+define('DB_AITISI_NAME', 'e_aitisi');
+define('DB_PROGRAMMATISMOS_NAME', 'programmatismos');
+define('DB_AXIOLOGISI_NAME', 'axiologisi');
 define('DB_USER', 'plinetamag'); // Όνομα χρήστη Βάσης (MySQL Username)
 define('DB_PASS', 'Fr9KC7$c4e'); // Κωδικός πρόσβασης Βάσης (MySQL Password)
 define('DB_CHARSET', 'utf8mb4');

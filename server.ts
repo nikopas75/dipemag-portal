@@ -6,6 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import mysql from 'mysql2/promise';
 import { UserProfile, DataRecord, SqlAuditLog, MysqlConfig, SqlQueryResult } from './src/modules/e-aitisi/types';
+import { HARDCODED_DB_DEFAULTS } from './src/config/dbDefaults';
 
 let aiClient: GoogleGenAI | null = null;
 function getAiClient(): GoogleGenAI | null {
@@ -26,14 +27,8 @@ function getAiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
-// Single Central Hardcoded Fallback for Target Database
-const TARGET_DB_HARDCODED_DEFAULTS = {
-  host: '10.2.49.42',
-  port: 3306,
-  user: 'plinetamag',
-  password: 'Fr9KC7$c4e',
-  database: 'e_aitisi'
-} as const;
+// Single Central Hardcoded Fallback for Target Database (from src/config/dbDefaults)
+const TARGET_DB_HARDCODED_DEFAULTS = HARDCODED_DB_DEFAULTS;
 
 // Active MySQL connection pool (when in external mode)
 let externalPool: mysql.Pool | null = null;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { safeApiFetch } from '../ProgrammatismosModule';
 import {
   Shield,
   Terminal,
@@ -290,13 +291,13 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
     setResetErrorMsg(null);
 
     try {
-      const res = await fetch('/api/programmatismos/admin/reset-data-tables', {
+      const res = await safeApiFetch('/api/programmatismos/admin/reset-data-tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category: resetCategory })
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = res.data;
+      if (data && data.success) {
         setResetSuccessMsg(data.message);
         setResetConfirmChecked(false);
         if (onRefreshAdminRecords) {
