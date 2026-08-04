@@ -507,12 +507,40 @@ if ($route === '/api/logs' || $routeClean === 'logs') {
 
 // GET & POST /api/plinetamag/admins
 if ($route === '/api/plinetamag/admins') {
+    try {
+        $pdo->exec("USE `" . DB_NAME . "`");
+    } catch (\Throwable $e) {}
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS settings (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
+    } catch (\Throwable $e) {}
+
     if ($method === 'GET') {
-        $admins = getSettingValue($pdo, ['admins', 'prog_admins']);
-        sendJson(['success' => true, 'admins' => is_array($admins) ? $admins : []]);
+        $admins = getSettingValue($pdo, ['admins']);
+        if (!is_array($admins)) $admins = [];
+        $hasSuperUser = false;
+        foreach ($admins as $adm) {
+            if (isset($adm['username']) && $adm['username'] === 'plinetamag') {
+                $hasSuperUser = true;
+                break;
+            }
+        }
+        if (!$hasSuperUser) {
+            array_unshift($admins, ["username" => "plinetamag", "password" => "pl!n3tAmag"]);
+        }
+        sendJson(['success' => true, 'admins' => $admins]);
     } else if ($method === 'POST') {
         $admins = $input['admins'] ?? null;
         if (!is_array($admins)) sendJson(['success' => false, 'error' => 'Invalid admins'], 400);
+        $hasSuperUser = false;
+        foreach ($admins as $adm) {
+            if (isset($adm['username']) && $adm['username'] === 'plinetamag') {
+                $hasSuperUser = true;
+                break;
+            }
+        }
+        if (!$hasSuperUser) {
+            array_unshift($admins, ["username" => "plinetamag", "password" => "pl!n3tAmag"]);
+        }
         saveSettingValue($pdo, 'admins', $admins);
         sendJson(['success' => true, 'message' => 'Οι διαχειριστές αποθηκεύτηκαν!']);
     }
@@ -650,15 +678,38 @@ function saveOrUpdateRecord($pdo, $tableName, $data, $keyCol = 'SchCode') {
 
 // GET /api/programmatismos/admins & POST
 if ($route === '/api/programmatismos/admins') {
+    selectProgrammatismosDb($pdo);
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS settings (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
+    } catch (\Throwable $e) {}
+
     if ($method === 'GET') {
         $admins = getSettingValue($pdo, ['admins', 'prog_admins']);
-        if (!is_array($admins) || count($admins) === 0) {
-            $admins = [["username" => "plinetamag", "password" => "pl!n3tAmag"]];
+        if (!is_array($admins)) $admins = [];
+        $hasSuperUser = false;
+        foreach ($admins as $adm) {
+            if (isset($adm['username']) && $adm['username'] === 'plinetamag') {
+                $hasSuperUser = true;
+                break;
+            }
+        }
+        if (!$hasSuperUser) {
+            array_unshift($admins, ["username" => "plinetamag", "password" => "pl!n3tAmag"]);
         }
         sendJson(['success' => true, 'admins' => $admins]);
     } else if ($method === 'POST') {
         $admins = $input['admins'] ?? null;
         if (!is_array($admins)) sendJson(['success' => false, 'error' => 'Invalid admins'], 400);
+        $hasSuperUser = false;
+        foreach ($admins as $adm) {
+            if (isset($adm['username']) && $adm['username'] === 'plinetamag') {
+                $hasSuperUser = true;
+                break;
+            }
+        }
+        if (!$hasSuperUser) {
+            array_unshift($admins, ["username" => "plinetamag", "password" => "pl!n3tAmag"]);
+        }
         saveSettingValue($pdo, 'admins', $admins);
         sendJson(['success' => true, 'message' => 'Οι διαχειριστές αποθηκεύτηκαν!']);
     }

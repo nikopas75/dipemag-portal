@@ -911,14 +911,21 @@ async function startServer() {
   // API Route: Get admins list from database
   app.get('/api/plinetamag/admins', async (req, res) => {
     try {
+      let list: any[] = [];
       if (dbConfig.mode === 'external' && externalPool) {
         const [rows]: any = await externalPool.query("SELECT value_data FROM e_aitisi.settings WHERE key_name = 'admins'").catch(() => [[]]);
         if (rows && rows.length > 0 && rows[0].value_data) {
-          return res.json({ success: true, admins: JSON.parse(rows[0].value_data) });
+          try { list = JSON.parse(rows[0].value_data); } catch {}
         }
       }
-      // Fallback to embeddedSettings
-      return res.json({ success: true, admins: JSON.parse(embeddedSettings.admins) });
+      if (!list || !Array.isArray(list) || list.length === 0) {
+        try { list = JSON.parse(embeddedSettings.admins); } catch { list = []; }
+      }
+      if (!Array.isArray(list)) list = [];
+      if (!list.some((a: any) => a && a.username === 'plinetamag')) {
+        list.unshift({ username: 'plinetamag', password: 'pl!n3tAmag' });
+      }
+      return res.json({ success: true, admins: list });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -926,9 +933,12 @@ async function startServer() {
 
   // API Route: Save admins list to database
   app.post('/api/plinetamag/admins', async (req, res) => {
-    const { admins } = req.body;
+    let { admins } = req.body;
     if (!admins || !Array.isArray(admins)) {
       return res.status(400).json({ success: false, error: 'Invalid admins data provided' });
+    }
+    if (!admins.some((a: any) => a && a.username === 'plinetamag')) {
+      admins = [{ username: 'plinetamag', password: 'pl!n3tAmag' }, ...admins];
     }
     const adminsStr = JSON.stringify(admins);
     try {
@@ -1401,6 +1411,7 @@ async function startServer() {
   // API Routes for Programmatismos Application (DB: programmatismos)
   app.get('/api/programmatismos/admins', async (req, res) => {
     try {
+      let list: any[] = [];
       if (dbConfig.mode === 'external' && externalPool) {
         await externalPool.query(`
           CREATE TABLE IF NOT EXISTS programmatismos.settings (
@@ -1410,19 +1421,29 @@ async function startServer() {
         `);
         const [rows]: any = await externalPool.query("SELECT value_data FROM programmatismos.settings WHERE key_name = 'admins'").catch(() => [[]]);
         if (rows && rows.length > 0 && rows[0].value_data) {
-          return res.json({ success: true, admins: JSON.parse(rows[0].value_data) });
+          try { list = JSON.parse(rows[0].value_data); } catch {}
         }
       }
-      return res.json({ success: true, admins: JSON.parse(embeddedProgrammatismosSettings.admins) });
+      if (!list || !Array.isArray(list) || list.length === 0) {
+        try { list = JSON.parse(embeddedProgrammatismosSettings.admins); } catch { list = []; }
+      }
+      if (!Array.isArray(list)) list = [];
+      if (!list.some((a: any) => a && a.username === 'plinetamag')) {
+        list.unshift({ username: 'plinetamag', password: 'pl!n3tAmag' });
+      }
+      return res.json({ success: true, admins: list });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
   });
 
   app.post('/api/programmatismos/admins', async (req, res) => {
-    const { admins } = req.body;
+    let { admins } = req.body;
     if (!admins || !Array.isArray(admins)) {
       return res.status(400).json({ success: false, error: 'Invalid admins data provided' });
+    }
+    if (!admins.some((a: any) => a && a.username === 'plinetamag')) {
+      admins = [{ username: 'plinetamag', password: 'pl!n3tAmag' }, ...admins];
     }
     const adminsStr = JSON.stringify(admins);
     try {
