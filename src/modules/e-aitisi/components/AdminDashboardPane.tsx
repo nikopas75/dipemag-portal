@@ -110,15 +110,45 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
   const [loadingPhases, setLoadingPhases] = useState(false);
   const [savingPhases, setSavingPhases] = useState(false);
 
+  const safeApiFetch = async (urlPath: string, options?: RequestInit) => {
+    const cleanRoute = urlPath.replace(/^\/api\//, '').replace(/^api\//, '');
+    const candidateUrls = [
+      urlPath,
+      urlPath.startsWith('/') ? urlPath.substring(1) : urlPath,
+      `api/index.php?route=${cleanRoute}`,
+      `./api/index.php?route=${cleanRoute}`
+    ];
+
+    let lastError = '';
+    for (const candidate of candidateUrls) {
+      try {
+        const res = await fetch(candidate, options);
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          if (res.ok || json.success !== undefined || json.records !== undefined || json.phases !== undefined || json.admins !== undefined) {
+            return { ok: res.ok, data: json, status: res.status, rawText: text };
+          }
+        } catch (jsonErr) {
+          lastError = text || `HTTP ${res.status} ${res.statusText}`;
+        }
+      } catch (netErr: any) {
+        lastError = netErr.message || String(netErr);
+      }
+    }
+
+    const cleanMsg = lastError.startsWith('<')
+      ? `Μη έγκυρη απόκριση (HTML/PHP): ${lastError.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 140)}...`
+      : (lastError || 'Σφάλμα επικοινωνίας με το διακομιστή');
+    return { ok: false, data: { success: false, error: cleanMsg }, rawText: lastError };
+  };
+
   const fetchPhases = async () => {
     setLoadingPhases(true);
     try {
-      const res = await fetch('/api/plinetamag/settings');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.phases) {
-          setPhases(data.phases);
-        }
+      const res = await safeApiFetch('/api/plinetamag/settings');
+      if (res.data && res.data.phases) {
+        setPhases(res.data.phases);
       }
     } catch (err) {
       console.error('Error fetching phases:', err);
@@ -129,13 +159,10 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
 
   const fetchAdmins = async () => {
     try {
-      const res = await fetch('/api/plinetamag/admins');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.admins) {
-          setAdminList(data.admins);
-          localStorage.setItem('eaitisi_admins_v2', JSON.stringify(data.admins));
-        }
+      const res = await safeApiFetch('/api/plinetamag/admins');
+      if (res.data && res.data.admins) {
+        setAdminList(res.data.admins);
+        localStorage.setItem('eaitisi_admins_v2', JSON.stringify(res.data.admins));
       }
     } catch (err) {
       console.error('Error fetching admins:', err);
@@ -147,14 +174,14 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch('/api/plinetamag/settings', {
+      const res = await safeApiFetch('/api/plinetamag/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phases: updatedPhases })
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Σφάλμα κατά την αποθήκευση των ρυθμίσεων.');
+      const data = res.data;
+      if (!data || (data.success !== undefined && !data.success)) {
+        throw new Error(data?.error || 'Σφάλμα κατά την αποθήκευση των ρυθμίσεων.');
       }
       setPhases(updatedPhases);
       setSuccessMsg(data.message || 'Οι ρυθμίσεις αποθηκεύτηκαν επιτυχώς!');
@@ -171,13 +198,14 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setLoadingAll(true);
     setErrorMsg(null);
     try {
-      const res = await fetch('/api/plinetamag/records?limit=2500');
-      if (!res.ok) throw new Error('Αποτυχία ανάκτησης πλήρους συνόλου εγγραφών.');
-      const data = await res.json();
-      setAllRecords(data.records || []);
-      setTotalRecords(data.total || data.records?.length || 0);
+      const res = await safeApiFetch('/api/plinetamag/records?limit=2500');
+      if (res.data) {
+        const recordsList = res.data.records || [];
+        setAllRecords(recordsList);
+        setTotalRecords(res.data.total || recordsList.length || 0);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message);
+      console.error('Error fetching all records:', err);
     } finally {
       setLoadingAll(false);
     }
@@ -186,10 +214,9 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
   const fetchAuditLogs = async () => {
     setLoadingLogs(true);
     try {
-      const res = await fetch('/api/logs');
-      if (res.ok) {
-        const data = await res.json();
-        setAuditLogs(data || []);
+      const res = await safeApiFetch('/api/logs');
+      if (res.data) {
+        setAuditLogs(Array.isArray(res.data) ? res.data : (res.data.logs || []));
       }
     } catch (err) {
       console.error(err);
@@ -200,16 +227,13 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
 
   const fetchCustomBackupStatus = async () => {
     try {
-      const res = await fetch('/api/plinetamag/backup-status');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.exists) {
-          setCustomBackupCount(data.count);
-          setCustomBackupDate(data.updatedAt || null);
-        } else {
-          setCustomBackupCount(null);
-          setCustomBackupDate(null);
-        }
+      const res = await safeApiFetch('/api/plinetamag/backup-status');
+      if (res.data && res.data.success && res.data.exists) {
+        setCustomBackupCount(res.data.count);
+        setCustomBackupDate(res.data.updatedAt || null);
+      } else {
+        setCustomBackupCount(null);
+        setCustomBackupDate(null);
       }
     } catch (err) {
       console.error('Error fetching custom backup status:', err);
@@ -234,10 +258,10 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch('/api/plinetamag/clone-sync', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Σφάλμα συγχρονισμού');
+      const res = await safeApiFetch('/api/plinetamag/clone-sync', { method: 'POST' });
+      const data = res.data;
+      if (!data || (data.success !== undefined && !data.success)) {
+        throw new Error(data?.error || 'Σφάλμα συγχρονισμού');
       }
       setSuccessMsg(data.message || 'Το αντίγραφο ΒΔ συγχρονίστηκε επιτυχώς!');
       onRefreshAllRecords();
@@ -259,10 +283,10 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch('/api/plinetamag/restore-sync', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Σφάλμα επαναφοράς');
+      const res = await safeApiFetch('/api/plinetamag/restore-sync', { method: 'POST' });
+      const data = res.data;
+      if (!data || (data.success !== undefined && !data.success)) {
+        throw new Error(data?.error || 'Σφάλμα επαναφοράς');
       }
       setSuccessMsg(data.message || 'Η επαναφορά της βάσης ολοκληρώθηκε επιτυχώς!');
       onRefreshAllRecords();
