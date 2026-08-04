@@ -30,13 +30,23 @@ export function getResolvedDbConfig(dbNameOverride?: string): DbConfig {
     saved = null;
   }
 
-  const metaEnv = (import.meta as any).env || {};
+  const getEnv = (key: string) => {
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      return process.env[key];
+    }
+    try {
+      const meta = import.meta as any;
+      return meta && meta.env ? meta.env[key] : undefined;
+    } catch {
+      return undefined;
+    }
+  };
 
-  const host = saved?.host || metaEnv.VITE_DB_HOST || HARDCODED_DB_DEFAULTS.host;
-  const port = saved?.port || (metaEnv.VITE_DB_PORT ? Number(metaEnv.VITE_DB_PORT) : HARDCODED_DB_DEFAULTS.port);
-  const user = saved?.user || metaEnv.VITE_DB_USER || HARDCODED_DB_DEFAULTS.user;
-  const password = saved?.password !== undefined ? saved.password : (metaEnv.VITE_DB_PASSWORD || HARDCODED_DB_DEFAULTS.password);
-  const database = dbNameOverride || saved?.database || metaEnv.VITE_DB_NAME || HARDCODED_DB_DEFAULTS.database;
+  const host = saved?.host || getEnv('VITE_DB_HOST') || HARDCODED_DB_DEFAULTS.host;
+  const port = saved?.port || (getEnv('VITE_DB_PORT') ? Number(getEnv('VITE_DB_PORT')) : HARDCODED_DB_DEFAULTS.port);
+  const user = saved?.user || getEnv('VITE_DB_USER') || HARDCODED_DB_DEFAULTS.user;
+  const password = saved?.password !== undefined ? saved.password : (getEnv('VITE_DB_PASSWORD') || HARDCODED_DB_DEFAULTS.password);
+  const database = dbNameOverride || saved?.database || getEnv('VITE_DB_NAME') || HARDCODED_DB_DEFAULTS.database;
 
   return {
     mode: 'external',

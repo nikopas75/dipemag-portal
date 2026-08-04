@@ -308,7 +308,7 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
     }
 
     try {
-      const res = await fetch('/api/programmatismos/admin/sync-principals', {
+      const res = await safeApiFetch('/api/programmatismos/admin/sync-principals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -317,13 +317,14 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
           updatePasswordMd5: true
         })
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = res.data;
+      if (data && data.success) {
         setSyncSuccessMsg(data.message);
         fetchDbUsersForSync(syncTargetTable);
         loadAdminRecords();
+        loadAdminUserRecords();
       } else {
-        setSyncErrorMsg(data.error || 'Σφάλμα κατά την ενημέρωση των διευθυντών.');
+        setSyncErrorMsg(data?.error || 'Σφάλμα κατά την ενημέρωση των διευθυντών.');
       }
     } catch (err: any) {
       setSyncErrorMsg('Σφάλμα δικτύου: ' + err.message);
@@ -377,9 +378,9 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
   };
 
   useEffect(() => {
-    fetch(`/api/programmatismos/schools?type=${schoolType}`)
-      .then(res => res.json())
-      .then(data => {
+    safeApiFetch(`/api/programmatismos/schools?type=${schoolType}`)
+      .then(res => {
+        const data = res.data;
         if (Array.isArray(data)) {
           const sorted = [...data].sort((a, b) => (Number(a.SchID) || 0) - (Number(b.SchID) || 0));
           setAvailableSchools(sorted);
@@ -391,9 +392,9 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
   // Fetch School Data for Director Portal
   const loadSchoolPortalData = async (schCode: string, amPass?: string) => {
     try {
-      const res = await fetch(`/api/programmatismos/school/${schCode}?type=${schoolType}`);
-      const data = await res.json();
-      if (data.school) {
+      const res = await safeApiFetch(`/api/programmatismos/school/${schCode}?type=${schoolType}`);
+      const data = res.data;
+      if (data && data.school) {
         // Validate Director AM password if supplied
         const masterPasses = ['pl!n3tAmag', '123456', '9999999', 'admin'];
         const isMaster = amPass && masterPasses.includes(amPass.trim());
@@ -440,9 +441,9 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
 
   // Fetch dynamic admins on load (Programmatismos Specific)
   useEffect(() => {
-    fetch('/api/programmatismos/admins')
-      .then(res => res.json())
-      .then(data => {
+    safeApiFetch('/api/programmatismos/admins')
+      .then(res => {
+        const data = res.data;
         if (data && data.success && Array.isArray(data.admins) && data.admins.length > 0) {
           setAdminList(data.admins);
           localStorage.setItem('programmatismos_admins_v1', JSON.stringify(data.admins));
@@ -453,18 +454,18 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
 
   const saveAdminsToDb = async (updatedList: { username: string; password: string }[]) => {
     try {
-      const res = await fetch('/api/programmatismos/admins', {
+      const res = await safeApiFetch('/api/programmatismos/admins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ admins: updatedList })
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      const data = res.data;
+      if (res.ok && data && data.success) {
         setAdminList(updatedList);
         localStorage.setItem('programmatismos_admins_v1', JSON.stringify(updatedList));
         return true;
       } else {
-        throw new Error(data.error || 'Σφάλμα κατά την αποθήκευση των διαχειριστών.');
+        throw new Error(data?.error || 'Σφάλμα κατά την αποθήκευση των διαχειριστών.');
       }
     } catch (err: any) {
       setAdminSecErrorMsg(err.message || 'Αποτυχία αποθήκευσης των διαχειριστών στη Βάση Δεδομένων.');
@@ -560,8 +561,8 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
   const loadAdminRecords = async () => {
     setIsLoadingAdmin(true);
     try {
-      const res = await fetch('/api/programmatismos/admin/records');
-      const data = await res.json();
+      const res = await safeApiFetch('/api/programmatismos/admin/records');
+      const data = res.data;
       if (Array.isArray(data)) setAdminRecords(data);
     } catch (err) {
       console.error('Error loading admin records:', err);
@@ -574,8 +575,8 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
   const loadAdminUserRecords = async () => {
     setIsLoadingAdmin(true);
     try {
-      const res = await fetch('/api/programmatismos/admin/users');
-      const data = await res.json();
+      const res = await safeApiFetch('/api/programmatismos/admin/users');
+      const data = res.data;
       if (Array.isArray(data)) {
         setAdminUserRecords(data);
       }
@@ -585,6 +586,13 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
       setIsLoadingAdmin(false);
     }
   };
+
+  useEffect(() => {
+    if (appRole === 'admin') {
+      loadAdminRecords();
+      loadAdminUserRecords();
+    }
+  }, [appRole]);
 
   const handleOpenNewSchoolModal = (defaultTable: string = 'dim_users') => {
     let target = defaultTable;
@@ -635,24 +643,24 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
     setSchoolModalError(null);
     setSchoolModalSuccess(null);
     try {
-      const res = await fetch('/api/programmatismos/admin/school/save', {
+      const res = await safeApiFetch('/api/programmatismos/admin/school/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingSchoolRecord)
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = res.data;
+      if (data && data.success) {
         setSchoolModalSuccess(data.message);
         setTimeout(() => {
           setIsSchoolModalOpen(false);
           setSchoolModalSuccess(null);
         }, 1200);
         loadAdminUserRecords();
-        fetch(`/api/programmatismos/schools?type=${schoolType}`)
-          .then(r => r.json())
-          .then(d => { if (Array.isArray(d)) setAvailableSchools(d); });
+        loadAdminRecords();
+        safeApiFetch(`/api/programmatismos/schools?type=${schoolType}`)
+          .then(r => { if (Array.isArray(r.data)) setAvailableSchools(r.data); });
       } else {
-        setSchoolModalError(data.error || 'Σφάλμα κατά την αποθήκευση της σχολικής μονάδας.');
+        setSchoolModalError(data?.error || 'Σφάλμα κατά την αποθήκευση της σχολικής μονάδας.');
       }
     } catch (err: any) {
       setSchoolModalError('Σφάλμα δικτύου: ' + err.message);
@@ -666,7 +674,7 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      const res = await fetch('/api/programmatismos/admin/school/delete', {
+      const res = await safeApiFetch('/api/programmatismos/admin/school/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -675,15 +683,15 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
           SchCode: rec.SchCode
         })
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = res.data;
+      if (data && data.success) {
         alert(data.message);
         loadAdminUserRecords();
-        fetch(`/api/programmatismos/schools?type=${schoolType}`)
-          .then(r => r.json())
-          .then(d => { if (Array.isArray(d)) setAvailableSchools(d); });
+        loadAdminRecords();
+        safeApiFetch(`/api/programmatismos/schools?type=${schoolType}`)
+          .then(r => { if (Array.isArray(r.data)) setAvailableSchools(r.data); });
       } else {
-        alert('Σφάλμα διαγραφής: ' + (data.error || 'Άγνωστο σφάλμα'));
+        alert('Σφάλμα διαγραφής: ' + (data?.error || 'Άγνωστο σφάλμα'));
       }
     } catch (err: any) {
       alert('Σφάλμα δικτύου: ' + err.message);
@@ -777,7 +785,7 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
     }
 
     try {
-      const res = await fetch('/api/programmatismos/school/save', {
+      const res = await safeApiFetch('/api/programmatismos/school/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -787,14 +795,14 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
           ekpData: updatedEkp
         })
       });
-      const result = await res.json();
-      if (result.success) {
+      const result = res.data;
+      if (result && result.success) {
         setMathData(updatedMath);
         setEkpData(updatedEkp);
         setSaveMessage('Τα στοιχεία Προγραμματισμού αποθηκεύτηκαν επιτυχώς στη Βάση Δεδομένων!');
         setTimeout(() => setSaveMessage(null), 4000);
       } else {
-        alert('Σφάλμα αποθήκευσης: ' + result.error);
+        alert('Σφάλμα αποθήκευσης: ' + (result?.error || 'Άγνωστο σφάλμα'));
       }
     } catch (err: any) {
       alert('Σφάλμα σύνδεσης κατά την αποθήκευση: ' + err.message);
