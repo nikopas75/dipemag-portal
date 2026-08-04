@@ -122,15 +122,45 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
   const [phases, setPhases] = useState<any[]>([]);
   const [loadingPhases, setLoadingPhases] = useState(false);
 
+  const safeApiFetch = async (urlPath: string, options?: RequestInit) => {
+    const cleanRoute = urlPath.replace(/^\/api\//, '').replace(/^api\//, '');
+    const candidateUrls = [
+      urlPath,
+      urlPath.startsWith('/') ? urlPath.substring(1) : urlPath,
+      `api/index.php?route=${cleanRoute}`,
+      `./api/index.php?route=${cleanRoute}`
+    ];
+
+    let lastError = '';
+    for (const candidate of candidateUrls) {
+      try {
+        const res = await fetch(candidate, options);
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          if (res.ok || json.success !== undefined || json.records !== undefined || json.teacher !== undefined || json.phases !== undefined) {
+            return { ok: res.ok, data: json, status: res.status, rawText: text };
+          }
+        } catch (jsonErr) {
+          lastError = text || `HTTP ${res.status} ${res.statusText}`;
+        }
+      } catch (netErr: any) {
+        lastError = netErr.message || String(netErr);
+      }
+    }
+
+    const cleanMsg = lastError.startsWith('<')
+      ? `Μη έγκυρη απόκριση (HTML/PHP αντί για JSON): ${lastError.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 140)}...`
+      : (lastError || 'Σφάλμα επικοινωνίας με το διακομιστή');
+    throw new Error(cleanMsg);
+  };
+
   const fetchPhases = async () => {
     setLoadingPhases(true);
     try {
-      const res = await fetch('/api/plinetamag/settings');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.phases) {
-          setPhases(data.phases);
-        }
+      const res = await safeApiFetch('/api/plinetamag/settings');
+      if (res.data && res.data.phases) {
+        setPhases(res.data.phases);
       }
     } catch (err) {
       console.error('Error fetching phases:', err);
@@ -198,9 +228,9 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     setCloneSyncMsg(null);
     setErrorMsg(null);
     try {
-      const res = await fetch('/api/plinetamag/clone-sync', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+      const res = await safeApiFetch('/api/plinetamag/clone-sync', { method: 'POST' });
+      const data = res.data;
+      if (!res.ok || (data.success !== undefined && !data.success)) {
         throw new Error(data.error || 'Σφάλμα συγχρονισμού αντιγράφου ΒΔ');
       }
       setActiveTableName(data.table || 'e_aitisi.teachers');
@@ -338,12 +368,11 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetch(`/api/plinetamag/records?page=${pageIndex}&limit=12&search=${encodeURIComponent(searchQuery)}`);
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to fetch records');
+      const res = await safeApiFetch(`/api/plinetamag/records?page=${pageIndex}&limit=12&search=${encodeURIComponent(searchQuery)}`);
+      const data = res.data;
+      if (!res.ok || (data.success !== undefined && !data.success)) {
+        throw new Error(data.error || 'Failed to fetch records');
       }
-      const data = await res.json();
       setRecords(data.records || []);
       setTotal(data.total || 0);
       setPage(data.page || 1);
@@ -369,12 +398,12 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     setTeacherAuthLoading(true);
     setTeacherAuthError(null);
     try {
-      const res = await fetch('/api/plinetamag/auth/login', {
+      const res = await safeApiFetch('/api/plinetamag/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ afm: teacherAfm, am: teacherAm })
       });
-      const data = await res.json();
+      const data = res.data;
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Αποτυχία σύνδεσης εκπαιδευτικού.');
       }
@@ -463,14 +492,14 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     }
     setSaveSuccess(false);
     try {
-      const res = await fetch(`/api/plinetamag/records/${selectedRecord.Α_Α}`, {
+      const res = await safeApiFetch(`/api/plinetamag/records/${selectedRecord.Α_Α}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm)
       });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Σφάλμα κατά την αποθήκευση');
+      const errData = res.data;
+      if (!res.ok || (errData && errData.success !== undefined && !errData.success)) {
+        throw new Error(errData?.error || 'Σφάλμα κατά την αποθήκευση');
       }
       const updated = { ...selectedRecord, ...editForm } as PlineRecord;
       setSelectedRecord(updated);
