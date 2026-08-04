@@ -1579,6 +1579,81 @@ async function startServer() {
     }
   });
 
+  app.get('/api/programmatismos/school/:schCode', async (req, res) => {
+    const schCode = req.params.schCode?.trim();
+    if (!externalPool) {
+      return res.status(400).json({ error: 'Δεν υπάρχει ενεργή σύνδεση με τη βάση δεδομένων MySQL.' });
+    }
+
+    try {
+      let school: any = null;
+      let cat = 'dim';
+      let mathTable = 'dim_data_math';
+      let ekpTable: string | null = 'dim_data_ekp';
+
+      const candidates = [
+        { u: 'dim_users', m: 'dim_data_math', e: 'dim_data_ekp', c: 'dim' },
+        { u: 'nip_users', m: 'nip_data_math', e: null, c: 'nip' },
+        { u: 'eid_dim_users', m: 'eid_dim_data_math', e: 'eid_dim_data_ekp', c: 'eid_dim' },
+        { u: 'eid_nip_users', m: 'eid_nip_data_math', e: null, c: 'eid_nip' },
+        { u: 'eid_users', m: 'eid_data_math', e: 'eid_data_ekp', c: 'eid_dim' }
+      ];
+
+      for (const cand of candidates) {
+        try {
+          const [rows]: any = await externalPool.query(
+            `SELECT * FROM programmatismos.${cand.u} WHERE SchCode = ? OR PrID = ? LIMIT 1;`,
+            [schCode, schCode]
+          );
+          if (rows && rows.length > 0) {
+            school = rows[0];
+            cat = cand.c;
+            mathTable = cand.m;
+            ekpTable = cand.e;
+            break;
+          }
+        } catch (e) {}
+      }
+
+      if (!school) {
+        return res.status(404).json({ error: 'Δεν βρέθηκε η σχολική μονάδα.' });
+      }
+
+      const targetCode = school.SchCode || schCode;
+
+      let mathData = null;
+      if (mathTable) {
+        try {
+          const [mRows]: any = await externalPool.query(
+            `SELECT * FROM programmatismos.${mathTable} WHERE SchCode = ? LIMIT 1;`,
+            [targetCode]
+          );
+          if (mRows && mRows.length > 0) mathData = mRows[0];
+        } catch (e) {}
+      }
+
+      let ekpData = null;
+      if (ekpTable) {
+        try {
+          const [eRows]: any = await externalPool.query(
+            `SELECT * FROM programmatismos.${ekpTable} WHERE SchCode = ? LIMIT 1;`,
+            [targetCode]
+          );
+          if (eRows && eRows.length > 0) ekpData = eRows[0];
+        } catch (e) {}
+      }
+
+      res.json({
+        category: cat,
+        school,
+        mathData,
+        ekpData
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Σφάλμα ανάκτησης δεδομένων σχολείου: ' + err.message });
+    }
+  });
+
   app.post('/api/programmatismos/school/save', async (req, res) => {
     const { schCode, category = 'dim', mathData, ekpData } = req.body;
     try {
