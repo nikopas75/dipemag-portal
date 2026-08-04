@@ -338,7 +338,7 @@ async function startServer() {
           database: database || 'test',
           waitForConnections: true,
           connectionLimit: 10,
-          connectTimeout: 20000 // Increased timeout for TCP tunnels (ngrok / cloudflare / pinggy)
+          connectTimeout: 4000 // Fast 4-second timeout for connection test
         });
 
         // Test connection

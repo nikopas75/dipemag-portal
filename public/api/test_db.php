@@ -44,7 +44,10 @@ echo "</ul>";
 echo "<h3>Έλεγχος Δικαιωμάτων & Πινάκων στη ΒΔ " . DB_NAME . ":</h3>";
 try {
     $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_TIMEOUT => 3
+    ]);
     $stmt = $pdo->query("SHOW TABLES");
     $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
     echo "<p style='color:green'>Επιτυχής ανάγνωση πινάκων! Βρέθηκαν " . count($tables) . " πίνακες:</p>";

@@ -37,39 +37,51 @@ import { getResolvedDbConfig, LOCALSTORAGE_KEY } from './config/dbDefaults';
 async function robustApiFetch(path: string, options?: RequestInit) {
   const cleanRouteName = path.replace(/^\/api\//, '').replace(/^api\//, '');
   const candidateUrls = [
-    path, // 1. Absolute path: /api/...
-    path.startsWith('/') ? path.substring(1) : path, // 2. Relative path: api/...
-    `api/index.php?route=${cleanRouteName}`, // 3. Direct PHP query fallback: api/index.php?route=...
-    `./api/index.php?route=${cleanRouteName}` // 4. Subfolder fallback: ./api/index.php?route=...
+    path, // Direct /api/...
+    `api/index.php?route=${cleanRouteName}` // PHP Apache fallback
   ];
 
   let lastErrorText = '';
-  let lastStatus = 404;
-  let lastStatusText = 'Not Found';
+  let lastStatus = 500;
 
   for (const url of candidateUrls) {
     try {
-      const res = await fetch(url, options);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const fetchOpts: RequestInit = {
+        ...options,
+        signal: options?.signal || controller.signal
+      };
+
+      const res = await fetch(url, fetchOpts);
+      clearTimeout(timeoutId);
+
       lastStatus = res.status;
-      lastStatusText = res.statusText;
       const text = await res.text();
       try {
         const json = JSON.parse(text);
         if (json && (json.success !== undefined || json.mode !== undefined || json.isConnected !== undefined || res.ok)) {
-          return { ok: true, data: json, status: res.status, rawText: text, urlUsed: url };
+          return { ok: res.ok || json.success === true, data: json, status: res.status, rawText: text, urlUsed: url };
         }
       } catch (e) {
         lastErrorText = text;
       }
+      if (res.ok) {
+        return { ok: true, data: { raw: text }, status: res.status, rawText: text, urlUsed: url };
+      }
     } catch (e: any) {
       lastErrorText = e.message || String(e);
+      if (e.name === 'AbortError') {
+        lastErrorText = 'Χρονικό όριο αίτησης (Timeout 5s) - Ο διακομιστής δεν ανταποκρίθηκε.';
+      }
     }
   }
 
   return {
     ok: false,
     status: lastStatus,
-    statusText: lastStatusText,
+    statusText: 'API Error',
     rawText: lastErrorText
   };
 }
@@ -172,39 +184,39 @@ export default function App() {
         database: newConfig.database || 'e_aitisi'
       };
 
-      // 1. Persist config to localStorage for the client
-      localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(configToSave));
-      localStorage.setItem('ngrok_db_config', JSON.stringify(configToSave));
-      setCurrentConnectionConfig(prev => ({ ...prev, ...configToSave, isConnected: true }));
-
-      // 2. Send config to server route
+      // 1. Send connection attempt to server
       const result = await robustApiFetch('/api/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(configToSave)
       });
 
-      // Refresh statuses and return success
       await fetchDbStatuses();
 
       if (result.ok && result.data && result.data.success) {
+        localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(configToSave));
+        localStorage.setItem('ngrok_db_config', JSON.stringify(configToSave));
+        setCurrentConnectionConfig(prev => ({ ...prev, ...configToSave, isConnected: true }));
         return { success: true };
       }
 
-      // If testing host from cloud sandbox container failed because 10.x.x.x is internal sch.gr intranet IP
+      const errorDetail = result.data?.error || result.rawText || 'Αποτυχία σύνδεσης στον διακομιστή MySQL.';
+
+      // If host is internal sch.gr IP (10.x.x.x) and request failed because cloud container cannot reach intranet IP:
       const targetHost = configToSave.host;
       if (targetHost.startsWith('10.') || targetHost.startsWith('192.168.') || targetHost.startsWith('172.')) {
-        return { success: true };
+        localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(configToSave));
+        localStorage.setItem('ngrok_db_config', JSON.stringify(configToSave));
+        setCurrentConnectionConfig(prev => ({ ...prev, ...configToSave, isConnected: false }));
+        return {
+          success: false,
+          error: `Η IP ${targetHost} είναι εσωτερική IP του Πανελλήνιου Σχολικού Δικτύου (sch.gr) και δεν είναι προσβάσιμη από το Cloud Online Preview Container.\n\nΟι ρυθμίσεις αποθηκεύτηκαν! Στον τοπικό διακομιστή ή στον web server του sch.gr (PHP PDO / Apache) η σύνδεση θα εκτελεστεί κανονικά.`
+        };
       }
 
-      if (result.data && result.data.error) {
-        return { success: false, error: result.data.error };
-      }
-
-      return { success: true };
+      return { success: false, error: errorDetail };
     } catch (err: any) {
-      await fetchDbStatuses();
-      return { success: true };
+      return { success: false, error: err.message || 'Σφάλμα κατά την αποθήκευση σύνδεσης' };
     }
   };
 
