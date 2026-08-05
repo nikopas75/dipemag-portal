@@ -250,7 +250,7 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
             }
         } else {
             // Auto-detect target database if query mentions specific app tables
-            $progTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users', 'dim_data_math', 'nip_data_math', 'eid_dim_data_math', 'eid_nip_data_math', 'eid_data_math', 'dim_data_ekp', 'eid_dim_data_ekp', 'eid_data_ekp'];
+            $progTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'dim_data_math', 'nip_data_math', 'eid_dim_data_math', 'eid_nip_data_math', 'dim_data_ekp', 'eid_dim_data_ekp'];
             foreach ($progTables as $t) {
                 if (preg_match('/\b' . $t . '\b/i', $sqlToRun)) {
                     $targetDb = 'programmatismos';
@@ -620,7 +620,7 @@ function getProgrammatismosTables($type) {
     if (strpos($type, 'eid') !== false && strpos($type, 'nip') !== false) {
         return ['user' => 'eid_nip_users', 'math' => 'eid_nip_data_math', 'ekp' => null, 'category' => 'eid_nip'];
     } else if (strpos($type, 'eid') !== false) {
-        return ['user' => 'eid_dim_users', 'alt_user' => 'eid_users', 'math' => 'eid_dim_data_math', 'alt_math' => 'eid_data_math', 'ekp' => 'eid_dim_data_ekp', 'alt_ekp' => 'eid_data_ekp', 'category' => 'eid_dim'];
+        return ['user' => 'eid_dim_users', 'math' => 'eid_dim_data_math', 'ekp' => 'eid_dim_data_ekp', 'category' => 'eid_dim'];
     } else if (strpos($type, 'nip') !== false) {
         return ['user' => 'nip_users', 'math' => 'nip_data_math', 'ekp' => null, 'category' => 'nip'];
     } else {
@@ -720,7 +720,7 @@ if ($route === '/api/programmatismos/status' && $method === 'GET') {
     selectProgrammatismosDb($pdo);
     try {
         $cnt = 0;
-        foreach (['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'] as $t) {
+        foreach (['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'] as $t) {
             try {
                 $c = (int)$pdo->query("SELECT COUNT(*) FROM `$t`")->fetchColumn();
                 $cnt += $c;
@@ -820,7 +820,7 @@ if ($route === '/api/programmatismos/auth/login' && $method === 'POST') {
     }
 
     if (!$school) {
-        foreach (['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'] as $t) {
+        foreach (['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'] as $t) {
             try {
                 $s = $pdo->prepare("SELECT * FROM `$t` WHERE SchCode = ? OR PrID = ? LIMIT 1");
                 $s->execute([$schCode, $schCode]);
@@ -894,8 +894,7 @@ if (preg_match('#^/api/programmatismos/school/([^/]+)$#', $route, $matches) && $
             ['u' => 'dim_users', 'm' => 'dim_data_math', 'e' => 'dim_data_ekp', 'c' => 'dim'],
             ['u' => 'nip_users', 'm' => 'nip_data_math', 'e' => null, 'c' => 'nip'],
             ['u' => 'eid_dim_users', 'm' => 'eid_dim_data_math', 'e' => 'eid_dim_data_ekp', 'c' => 'eid_dim'],
-            ['u' => 'eid_nip_users', 'm' => 'eid_nip_data_math', 'e' => null, 'c' => 'eid_nip'],
-            ['u' => 'eid_users', 'm' => 'eid_data_math', 'e' => 'eid_data_ekp', 'c' => 'eid_dim']
+            ['u' => 'eid_nip_users', 'm' => 'eid_nip_data_math', 'e' => null, 'c' => 'eid_nip']
         ];
         foreach ($candidates as $cand) {
             try {
@@ -1030,24 +1029,8 @@ if ($route === '/api/programmatismos/admin/records' && $method === 'GET') {
             $rows = $stmt->fetchAll();
             if (!empty($rows)) {
                 $records = array_merge($records, $rows);
-                $loaded = true;
             }
         } catch (\Exception $e) {}
-
-        if (!$loaded) {
-            try {
-                $stmt = $pdo->query("
-                    SELECT u.SchID, u.SchCode, u.SchName, u.PrName, u.Organ, u.Location, 'eid_dim' as category,
-                           m.StuTotal, m.ClassTotal, m.TimeStamp as MathTimeStamp,
-                           e.DiaTotal, e.ProTotal, e.TimeStamp as EkpTimeStamp
-                    FROM eid_users u
-                    LEFT JOIN eid_data_math m ON CONVERT(u.SchCode USING utf8mb4) = CONVERT(m.SchCode USING utf8mb4)
-                    LEFT JOIN eid_data_ekp e ON CONVERT(u.SchCode USING utf8mb4) = CONVERT(e.SchCode USING utf8mb4)
-                    ORDER BY u.SchID ASC
-                ");
-                $records = array_merge($records, $stmt->fetchAll());
-            } catch (\Exception $e2) {}
-        }
     }
 
     // eid_nip
@@ -1076,7 +1059,7 @@ if ($route === '/api/programmatismos/admin/users' && $method === 'GET') {
     $userTables = [
         ['name' => 'dim_users', 'category' => 'dim'],
         ['name' => 'nip_users', 'category' => 'nip'],
-        ['name' => 'eid_dim_users', 'category' => 'eid_dim', 'alt' => 'eid_users'],
+        ['name' => 'eid_dim_users', 'category' => 'eid_dim'],
         ['name' => 'eid_nip_users', 'category' => 'eid_nip']
     ];
 
@@ -1085,14 +1068,7 @@ if ($route === '/api/programmatismos/admin/users' && $method === 'GET') {
         try {
             $stmt = $pdo->query("SELECT SchID, SchCode, SchName, PrID, PrName, Organ, Location, Password, '$tableName' as sourceTable, '{$t['category']}' as category FROM `$tableName` ORDER BY SchID ASC");
             $records = array_merge($records, $stmt->fetchAll());
-        } catch (\Exception $e) {
-            if (isset($t['alt'])) {
-                try {
-                    $stmt = $pdo->query("SELECT SchID, SchCode, SchName, PrID, PrName, Organ, Location, Password, '{$t['alt']}' as sourceTable, '{$t['category']}' as category FROM `{$t['alt']}` ORDER BY SchID ASC");
-                    $records = array_merge($records, $stmt->fetchAll());
-                } catch (\Exception $ex) {}
-            }
-        }
+        } catch (\Exception $e) {}
     }
 
     usort($records, fn($a, $b) => ((int)($a['SchID'] ?? 0)) - ((int)($b['SchID'] ?? 0)));
@@ -1103,7 +1079,7 @@ if ($route === '/api/programmatismos/admin/users' && $method === 'GET') {
 if ($route === '/api/programmatismos/admin/school/save' && $method === 'POST') {
     selectProgrammatismosDb($pdo);
     $tbl = $input['table'] ?? $input['sourceTable'] ?? 'dim_users';
-    $allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
+    $allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'];
     $targetTable = in_array($tbl, $allowedTables) ? $tbl : 'dim_users';
 
     $schID = isset($input['SchID']) ? (int)$input['SchID'] : 0;
@@ -1142,7 +1118,7 @@ if ($route === '/api/programmatismos/admin/school/save' && $method === 'POST') {
 if ($route === '/api/programmatismos/admin/school/delete' && $method === 'POST') {
     selectProgrammatismosDb($pdo);
     $tbl = $input['table'] ?? 'dim_users';
-    $allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
+    $allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'];
     $targetTable = in_array($tbl, $allowedTables) ? $tbl : 'dim_users';
 
     $schID = isset($input['SchID']) ? (int)$input['SchID'] : 0;
@@ -1171,7 +1147,7 @@ if ($route === '/api/programmatismos/admin/export/csv' && $method === 'GET') {
     $allowedTables = [
         'dim_users', 'dim_data_math', 'dim_data_ekp',
         'nip_users', 'nip_data_math',
-        'eid_dim_users', 'eid_dim_data_math', 'eid_dim_data_ekp', 'eid_users', 'eid_data_math', 'eid_data_ekp',
+        'eid_dim_users', 'eid_dim_data_math', 'eid_dim_data_ekp',
         'eid_nip_users', 'eid_nip_data_math'
     ];
     if (!in_array($tableName, $allowedTables)) {
@@ -1180,8 +1156,32 @@ if ($route === '/api/programmatismos/admin/export/csv' && $method === 'GET') {
     try {
         $stmt = $pdo->query("SELECT * FROM `$tableName`");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $fields = !empty($rows) ? array_keys($rows[0]) : [];
-        $headers = array_filter($fields, fn($h) => $h !== 'dataID');
+        
+        $headers = [];
+        if ($stmt && $stmt->columnCount() > 0) {
+            for ($i = 0; $i < $stmt->columnCount(); $i++) {
+                $colMeta = $stmt->getColumnMeta($i);
+                if ($colMeta && isset($colMeta['name']) && $colMeta['name'] !== 'dataID') {
+                    $headers[] = $colMeta['name'];
+                }
+            }
+        }
+        if (empty($headers) && !empty($rows)) {
+            $headers = array_values(array_filter(array_keys($rows[0]), fn($h) => $h !== 'dataID'));
+        }
+        if (empty($headers)) {
+            if (strpos($tableName, 'data_math') !== false) {
+                $headers = ['SchCode', 'StuTotal', 'ClassTotal', 'TimeStamp'];
+            } else if (strpos($tableName, 'data_ekp') !== false) {
+                $headers = ['SchCode', 'DiaTotal', 'ProTotal', 'TimeStamp'];
+            } else {
+                $headers = ['SchID', 'SchCode', 'SchName', 'PrID', 'PrName', 'Organ', 'Location', 'Password'];
+            }
+        }
+
+        if (ob_get_length()) {
+            ob_clean();
+        }
 
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $tableName . '_export.csv"');
@@ -1190,8 +1190,19 @@ if ($route === '/api/programmatismos/admin/export/csv' && $method === 'GET') {
         foreach ($rows as $row) {
             $line = array_map(function($h) use ($row) {
                 $val = $row[$h] ?? '';
-                $val = str_replace('"', '""', $val);
-                if (strpos($val, ';') !== false || strpos($val, "\n") !== false || strpos($val, '"') !== false) {
+                if ($val === null) $val = '';
+                if (stripos($h, 'timestamp') !== false && !empty($val)) {
+                    $clean = str_replace(['T', 'Z'], [' ', ''], (string)$val);
+                    $parts = explode(' ', trim($clean));
+                    if (count($parts) > 0) {
+                        $dateParts = explode('-', $parts[0]);
+                        if (count($dateParts) === 3) {
+                            $val = $dateParts[2] . '/' . $dateParts[1] . '/' . $dateParts[0] . (isset($parts[1]) ? ' ' . $parts[1] : '');
+                        }
+                    }
+                }
+                $val = str_replace('"', '""', (string)$val);
+                if (strpos($val, ';') !== false || strpos($val, "\n") !== false || strpos($val, "\r") !== false || strpos($val, '"') !== false) {
                     $val = '"' . $val . '"';
                 }
                 return $val;
@@ -1211,16 +1222,16 @@ if ($route === '/api/programmatismos/admin/sync-principals' && $method === 'POST
     $updates = $input['updates'] ?? [];
     $updatePasswordMd5 = $input['updatePasswordMd5'] ?? true;
 
-    $allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
+    $allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'];
     $targetTables = [];
     if (is_array($tblParam)) {
         $targetTables = array_filter($tblParam, fn($t) => in_array($t, $allowedTables));
     } else if ($tblParam === 'all_dim') {
-        $targetTables = ['dim_users', 'eid_dim_users', 'eid_users'];
+        $targetTables = ['dim_users', 'eid_dim_users'];
     } else if ($tblParam === 'all_nip') {
         $targetTables = ['nip_users', 'eid_nip_users'];
     } else if ($tblParam === 'all_tables') {
-        $targetTables = ['dim_users', 'eid_dim_users', 'eid_users', 'nip_users', 'eid_nip_users'];
+        $targetTables = ['dim_users', 'eid_dim_users', 'nip_users', 'eid_nip_users'];
     } else if (in_array($tblParam, $allowedTables)) {
         $targetTables = [$tblParam];
     }
@@ -1291,8 +1302,6 @@ if ($route === '/api/programmatismos/admin/reset-data-tables' && $method === 'PO
     if ($cat === 'eid_dim' || $cat === 'all') {
         $pairs[] = ['data' => 'eid_dim_data_math', 'user' => 'eid_dim_users'];
         $pairs[] = ['data' => 'eid_dim_data_ekp', 'user' => 'eid_dim_users'];
-        $pairs[] = ['data' => 'eid_data_math', 'user' => 'eid_users'];
-        $pairs[] = ['data' => 'eid_data_ekp', 'user' => 'eid_users'];
     }
     if ($cat === 'eid_nip' || $cat === 'all') {
         $pairs[] = ['data' => 'eid_nip_data_math', 'user' => 'eid_nip_users'];

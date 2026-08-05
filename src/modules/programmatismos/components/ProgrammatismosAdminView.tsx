@@ -773,8 +773,9 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                         <select
                           value={syncCodeCol}
                           onChange={e => setSyncCodeCol(e.target.value)}
-                          className="w-full bg-slate-950 text-white border border-slate-800 rounded-xl p-2 font-mono text-xs"
+                          className={`w-full bg-slate-950 text-white border rounded-xl p-2 font-mono text-xs ${!syncCodeCol ? 'border-amber-500/60 text-amber-300' : 'border-slate-800'}`}
                         >
+                          <option value="">-- Επιλογή πεδίου --</option>
                           {syncCsvHeaders.map(h => (
                             <option key={`code-${h}`} value={h}>{h}</option>
                           ))}
@@ -786,8 +787,9 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                         <select
                           value={syncNameCol}
                           onChange={e => setSyncNameCol(e.target.value)}
-                          className="w-full bg-slate-950 text-white border border-slate-800 rounded-xl p-2 font-mono text-xs"
+                          className={`w-full bg-slate-950 text-white border rounded-xl p-2 font-mono text-xs ${!syncNameCol ? 'border-amber-500/60 text-amber-300' : 'border-slate-800'}`}
                         >
+                          <option value="">-- Επιλογή πεδίου --</option>
                           {syncCsvHeaders.map(h => (
                             <option key={`name-${h}`} value={h}>{h}</option>
                           ))}
@@ -801,7 +803,7 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                           onChange={e => setSyncAmCol(e.target.value)}
                           className="w-full bg-slate-950 text-white border border-slate-800 rounded-xl p-2 font-mono text-xs"
                         >
-                          <option value="">-- Χωρίς ΑΜ --</option>
+                          <option value="">-- Επιλογή πεδίου (ή Χωρίς ΑΜ) --</option>
                           {syncCsvHeaders.map(h => (
                             <option key={`am-${h}`} value={h}>{h}</option>
                           ))}
@@ -815,7 +817,7 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                           onChange={e => setSyncAfmCol(e.target.value)}
                           className="w-full bg-slate-950 text-white border border-slate-800 rounded-xl p-2 font-mono text-xs"
                         >
-                          <option value="">-- Χωρίς ΑΦΜ --</option>
+                          <option value="">-- Επιλογή πεδίου (ή Χωρίς ΑΦΜ) --</option>
                           {syncCsvHeaders.map(h => (
                             <option key={`afm-${h}`} value={h}>{h}</option>
                           ))}
@@ -901,7 +903,7 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
-                            {syncRawRows.slice(0, 100).map((r, idx) => {
+                            {syncRawRows.map((r, idx) => {
                               const code = String(r[syncCodeCol] || '').trim();
                               const newName = String(r[syncNameCol] || '').trim();
                               const { prId: newAm, source } = getEffectivePrID(r);
@@ -962,18 +964,18 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                           </tbody>
                         </table>
                       </div>
-                      {syncRawRows.length > 100 && (
-                        <p className="text-[10px] text-slate-400 font-mono text-center">
-                          * Εμφανίζονται οι πρώτες 100 από {syncRawRows.length} εγγραφές της προεπισκόπησης.
-                        </p>
-                      )}
                     </div>
 
-                    <div className="flex justify-end pt-2">
+                    <div className="flex items-center justify-end space-x-3 pt-2">
+                      {(!syncCodeCol || !syncNameCol) && (
+                        <span className="text-xs text-amber-400 font-medium">
+                          ⚠️ Παρακαλώ επιλέξτε τη Στήλη Κωδικού &amp; Ονοματεπώνυμου
+                        </span>
+                      )}
                       <button
                         onClick={onExecutePrincipalSync}
-                        disabled={isSyncing}
-                        className="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-lg disabled:opacity-50"
+                        disabled={isSyncing || !syncCodeCol || !syncNameCol}
+                        className="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isSyncing ? (
                           <RefreshCw className="w-4 h-4 animate-spin" />

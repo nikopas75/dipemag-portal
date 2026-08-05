@@ -235,6 +235,16 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
   useEffect(() => {
     if (consoleSubTab === 'maintenance') {
       fetchDbUsersForSync(syncTargetTable);
+      // Reset loaded CSV preview to prevent accidentally applying a CSV from one category (e.g. Nip) to another (e.g. Dim)
+      setSyncRawRows([]);
+      setSyncCsvFileName('');
+      setSyncCsvHeaders([]);
+      setSyncCodeCol('');
+      setSyncNameCol('');
+      setSyncAmCol('');
+      setSyncAfmCol('');
+      setSyncSuccessMsg(null);
+      setSyncErrorMsg(null);
     }
   }, [syncTargetTable, consoleSubTab]);
 
@@ -257,16 +267,11 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
       const headers = firstLine.split(sep).map(h => h.trim().replace(/^["'\uFEFF]+|["'\uFEFF]+$/g, ''));
       setSyncCsvHeaders(headers);
 
-      // Intelligent Auto-detect
-      const autoCodeCol = headers.find(h => /SchCode|Κωδικός|Code|ΚΩΔΙΚΟΣ|ΚΩΔ_ΣΧΟΛ/i.test(h)) || headers[0] || '';
-      const autoNameCol = headers.find(h => /PrName|Διευθυντ|Προϊστάμεν|Ονοματεπώνυμο|Επώνυμο|Name/i.test(h)) || headers[1] || '';
-      const autoAmCol = headers.find(h => /PrID|AM|ΑΜ|Αριθμός Μητρώου|Μητρώο/i.test(h)) || headers[2] || '';
-      const autoAfmCol = headers.find(h => /AFM|ΑΦΜ|TaxID|Α\.Φ\.Μ\.|A\.F\.M\./i.test(h)) || '';
-
-      setSyncCodeCol(autoCodeCol);
-      setSyncNameCol(autoNameCol);
-      setSyncAmCol(autoAmCol);
-      setSyncAfmCol(autoAfmCol);
+      // Reset column selections to empty by default (<τίποτα>)
+      setSyncCodeCol('');
+      setSyncNameCol('');
+      setSyncAmCol('');
+      setSyncAfmCol('');
 
       const parsedRows: any[] = [];
       for (let i = 1; i < lines.length; i++) {

@@ -310,20 +310,21 @@ async function startServer() {
     const startMs = performance.now();
 
     if (mode === 'external') {
+      // Strip prefixes like tcp:// or http:// if user pasted full tunnel URL into host
+      let cleanHost = (host || 'localhost').replace(/^(tcp|http|https):\/\//i, '');
+      // If host contains :port at the end and port wasn't explicitly overridden, split it
+      let cleanPort = Number(port) || 3306;
+      if (cleanHost.includes(':')) {
+        const parts = cleanHost.split(':');
+        cleanHost = parts[0];
+        if (!isNaN(Number(parts[1]))) {
+          cleanPort = Number(parts[1]);
+        }
+      }
+
       try {
         if (externalPool) {
           await externalPool.end();
-        }
-        // Strip prefixes like tcp:// or http:// if user pasted full tunnel URL into host
-        let cleanHost = (host || 'localhost').replace(/^(tcp|http|https):\/\//i, '');
-        // If host contains :port at the end and port wasn't explicitly overridden, split it
-        let cleanPort = Number(port) || 3306;
-        if (cleanHost.includes(':')) {
-          const parts = cleanHost.split(':');
-          cleanHost = parts[0];
-          if (!isNaN(Number(parts[1]))) {
-            cleanPort = Number(parts[1]);
-          }
         }
 
         const pool = mysql.createPool({
@@ -356,7 +357,6 @@ async function startServer() {
         return res.json({ success: true, config: dbConfig });
       } catch (err: any) {
         let errorReason = err.message || 'Unknown network error';
-        let cleanHost = (host || 'localhost').replace(/^(tcp|http|https):\/\//i, '');
         if (cleanHost.startsWith('10.') || cleanHost.startsWith('192.168.') || cleanHost.startsWith('172.')) {
           const finalDb = database || 'e_aitisi';
           dbConfig = {
@@ -1553,14 +1553,6 @@ async function startServer() {
           );
           return res.json(schools);
         } catch (tableErr) {
-          if (tableName === 'eid_dim_users') {
-            try {
-              const [schools]: any = await externalPool.query(
-                'SELECT SchID, SchCode, SchName, Organ, Location, PrID, PrName FROM programmatismos.eid_users ORDER BY SchID ASC, SchName ASC;'
-              );
-              return res.json(schools);
-            } catch (e) {}
-          }
           try {
             const [schools]: any = await externalPool.query(
               'SELECT SchID, SchCode, SchName, Organ, Location, PrID, PrName FROM programmatismos.dim_users ORDER BY SchID ASC, SchName ASC;'
@@ -1580,7 +1572,7 @@ async function startServer() {
         return res.json([
           { SchID: 30, SchCode: '9350030', SchName: '1ο ΕΙΔΙΚΟ ΝΗΠΙΑΓΩΓΕΙΟ ΒΟΛΟΥ', Organ: '1/Θ', Location: 'ΒΟΛΟΣ', PrID: '567890', PrName: 'ΑΝΝΑ ΜΑΡΙΑ' }
         ]);
-      } else if (tableName === 'eid_dim_users' || tableName === 'eid_users') {
+      } else if (tableName === 'eid_dim_users') {
         return res.json([
           { SchID: 20, SchCode: '9350020', SchName: '1ο ΕΙΔΙΚΟ ΔΗΜΟΤΙΚΟ ΣΧΟΛΕΙΟ ΒΟΛΟΥ', Organ: '4/Θ', Location: 'ΒΟΛΟΣ', PrID: '456789', PrName: 'ΚΩΝΣΤΑΝΤΙΝΟΣ ΝΙΚΟΛΑΟΥ' }
         ]);
@@ -1630,8 +1622,7 @@ async function startServer() {
           { u: 'dim_users' },
           { u: 'nip_users' },
           { u: 'eid_dim_users' },
-          { u: 'eid_nip_users' },
-          { u: 'eid_users' }
+          { u: 'eid_nip_users' }
         ].filter(t => t.u !== tableName);
         for (const st of searchTables) {
           try {
@@ -1670,8 +1661,7 @@ async function startServer() {
         { u: 'dim_users', m: 'dim_data_math', e: 'dim_data_ekp', c: 'dim' },
         { u: 'nip_users', m: 'nip_data_math', e: null, c: 'nip' },
         { u: 'eid_dim_users', m: 'eid_dim_data_math', e: 'eid_dim_data_ekp', c: 'eid_dim' },
-        { u: 'eid_nip_users', m: 'eid_nip_data_math', e: null, c: 'eid_nip' },
-        { u: 'eid_users', m: 'eid_data_math', e: 'eid_data_ekp', c: 'eid_dim' }
+        { u: 'eid_nip_users', m: 'eid_nip_data_math', e: null, c: 'eid_nip' }
       ];
 
       for (const cand of candidates) {
@@ -1802,15 +1792,7 @@ async function startServer() {
           }
         } else if (cat === 'eid' || cat === 'eid_dim') {
           let mathTable = 'eid_dim_data_math';
-          let [existingMath]: any = [];
-          try {
-            const [rows]: any = await externalPool.query(`SELECT dataID FROM programmatismos.${mathTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
-            existingMath = rows;
-          } catch (mErr) {
-            mathTable = 'eid_data_math';
-            const [rows]: any = await externalPool.query(`SELECT dataID FROM programmatismos.${mathTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
-            existingMath = rows;
-          }
+          const [existingMath]: any = await externalPool.query(`SELECT dataID FROM programmatismos.${mathTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
 
           if (existingMath && existingMath.length > 0) {
             const updateSql = `
@@ -1883,19 +1865,7 @@ async function startServer() {
       if (ekpData && cat !== 'nip' && cat !== 'eid_nip') {
         const isEid = (cat === 'eid_dim' || cat === 'eid');
         let ekpTable = isEid ? 'eid_dim_data_ekp' : 'dim_data_ekp';
-        let existingEkp: any[] = [];
-        try {
-          const [rows]: any = await externalPool.query(`SELECT dataID FROM programmatismos.${ekpTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
-          existingEkp = rows;
-        } catch (e1) {
-          if (isEid) {
-            ekpTable = 'eid_data_ekp';
-            try {
-              const [rows]: any = await externalPool.query(`SELECT dataID FROM programmatismos.${ekpTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
-              existingEkp = rows;
-            } catch (e2) {}
-          }
-        }
+        const [existingEkp]: any = await externalPool.query(`SELECT dataID FROM programmatismos.${ekpTable} WHERE SchCode = ? LIMIT 1;`, [schCode]);
         
         if (isEid) {
           if (existingEkp && existingEkp.length > 0) {
@@ -2057,20 +2027,7 @@ async function startServer() {
               ORDER BY u.SchID ASC;
             `);
             records = records.concat(rows);
-          } catch (e) {
-            try {
-              const [rows]: any = await externalPool.query(`
-                SELECT u.SchID, u.SchCode, u.SchName, u.PrName, u.Organ, u.Location, 'eid_dim' as category,
-                       m.StuTotal, m.ClassTotal, m.TimeStamp as MathTimeStamp,
-                       e.DiaTotal, e.ProTotal, e.TimeStamp as EkpTimeStamp
-                FROM programmatismos.eid_users u
-                LEFT JOIN programmatismos.eid_data_math m ON u.SchCode = m.SchCode
-                LEFT JOIN programmatismos.eid_data_ekp e ON u.SchCode = e.SchCode
-                ORDER BY u.SchID ASC;
-              `);
-              records = records.concat(rows);
-            } catch (e2) {}
-          }
+          } catch (e) {}
         }
 
         if (category === 'eid_nip' || category === 'all') {
@@ -2125,18 +2082,7 @@ async function startServer() {
               ORDER BY SchID ASC;
             `);
             records = records.concat(rows);
-          } catch (e) {
-            if (t.name === 'eid_dim_users') {
-              try {
-                const [rows]: any = await externalPool.query(`
-                  SELECT SchID, SchCode, SchName, PrID, PrName, Organ, Location, Password, 'eid_users' as sourceTable, 'eid_dim' as category
-                  FROM programmatismos.eid_users
-                  ORDER BY SchID ASC;
-                `);
-                records = records.concat(rows);
-              } catch (e2) {}
-            }
-          }
+          } catch (e) {}
         }
       }
 
@@ -2165,7 +2111,7 @@ async function startServer() {
         return res.status(500).json({ success: false, error: 'No MySQL pool' });
       }
 
-      const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
+      const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'];
       const targetTable = allowedTables.includes(table) ? table : 'dim_users';
 
       const cleanSchCode = String(SchCode || '').trim();
@@ -2210,7 +2156,7 @@ async function startServer() {
         return res.status(500).json({ success: false, error: 'No MySQL pool' });
       }
 
-      const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
+      const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'];
       const targetTable = allowedTables.includes(table) ? table : 'dim_users';
 
       if (SchID && Number(SchID) > 0) {
@@ -2235,7 +2181,7 @@ async function startServer() {
       const allowedTables = [
         'dim_users', 'dim_data_math', 'dim_data_ekp',
         'nip_users', 'nip_data_math',
-        'eid_dim_users', 'eid_dim_data_math', 'eid_dim_data_ekp', 'eid_users', 'eid_data_math', 'eid_data_ekp',
+        'eid_dim_users', 'eid_dim_data_math', 'eid_dim_data_ekp',
         'eid_nip_users', 'eid_nip_data_math'
       ];
 
@@ -2251,15 +2197,7 @@ async function startServer() {
           const [dbRows, dbFields]: any = await externalPool.query(`SELECT * FROM programmatismos.${tableName};`);
           rows = dbRows || [];
           fields = dbFields || [];
-        } catch (dbErr) {
-          if (tableName === 'eid_dim_users') {
-            try {
-              const [dbRows, dbFields]: any = await externalPool.query(`SELECT * FROM programmatismos.eid_users;`);
-              rows = dbRows || [];
-              fields = dbFields || [];
-            } catch (e2) {}
-          }
-        }
+        } catch (dbErr) {}
       }
 
       let headers: string[] = [];
@@ -2501,13 +2439,13 @@ async function startServer() {
       } else if (category === 'nip') {
         await resetCategoryTables(['nip_data_math'], [], 'nip_users', '');
       } else if (category === 'eid_dim') {
-        await resetCategoryTables(['eid_dim_data_math', 'eid_dim_data_ekp'], ['eid_data_math', 'eid_data_ekp'], 'eid_dim_users', 'eid_users');
+        await resetCategoryTables(['eid_dim_data_math', 'eid_dim_data_ekp'], [], 'eid_dim_users', '');
       } else if (category === 'eid_nip') {
         await resetCategoryTables(['eid_nip_data_math'], [], 'eid_nip_users', '');
       } else if (category === 'all') {
         await resetCategoryTables(['dim_data_math', 'dim_data_ekp'], [], 'dim_users', '');
         await resetCategoryTables(['nip_data_math'], [], 'nip_users', '');
-        await resetCategoryTables(['eid_dim_data_math', 'eid_dim_data_ekp'], ['eid_data_math', 'eid_data_ekp'], 'eid_dim_users', 'eid_users');
+        await resetCategoryTables(['eid_dim_data_math', 'eid_dim_data_ekp'], [], 'eid_dim_users', '');
         await resetCategoryTables(['eid_nip_data_math'], [], 'eid_nip_users', '');
       } else {
         return res.status(400).json({ error: 'Μη έγκυρη κατηγορία εκκαθάρισης' });
