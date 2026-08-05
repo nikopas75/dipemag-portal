@@ -823,13 +823,41 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
   };
 
   // Helper for direct CSV download without blank browser tab artifacts
-  const handleExportTableCsv = (table: string) => {
-    const link = document.createElement('a');
-    link.href = `/api/programmatismos/admin/export/csv?table=${table}`;
-    link.setAttribute('download', `${table}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportTableCsv = async (table: string) => {
+    try {
+      const res = await safeApiFetch(`/api/programmatismos/admin/export/csv?table=${table}`);
+      let csvContent = res.rawText || '';
+      if (!csvContent && typeof res.data === 'string') {
+        csvContent = res.data;
+      }
+      if (!csvContent && res.data && typeof res.data === 'object' && res.data.error) {
+        alert(`Σφάλμα εξαγωγής: ${res.data.error}`);
+        return;
+      }
+
+      if (!csvContent) {
+        alert('Δεν παραλήφθηκαν δεδομένα για την εξαγωγή CSV.');
+        return;
+      }
+
+      // Ensure UTF-8 BOM (\uFEFF) for proper Greek character display in Excel
+      if (!csvContent.startsWith('\uFEFF')) {
+        csvContent = '\uFEFF' + csvContent;
+      }
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${table}_export.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exporting CSV:', err);
+      alert('Σφάλμα κατά την εξαγωγή του αρχείου CSV.');
+    }
   };
 
   // Run SQL Console query
