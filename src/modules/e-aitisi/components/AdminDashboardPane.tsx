@@ -611,9 +611,10 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
       });
 
       doc.save(`Συγκεντρωτική_Κατάσταση_${exportFilter}_${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Σφάλμα κατά τη δημιουργία του PDF.');
+      const errorStr = err?.stack || err?.message || String(err);
+      alert(`Σφάλμα κατά τη δημιουργία του PDF:\n\n${errorStr}`);
     } finally {
       setExportingPDF(false);
     }

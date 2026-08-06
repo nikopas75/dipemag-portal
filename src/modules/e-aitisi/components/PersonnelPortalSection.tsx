@@ -708,9 +708,10 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
 
       const fileName = `Αίτηση_${typeStr}_${selectedRecord.Επώνυμο || 'Teacher'}_${selectedRecord.Όνομα || ''}_${selectedRecord.ΑρΜητρ || ''}.pdf`;
       doc.save(fileName);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error generating programmatic PDF:", err);
-      alert("Προέκυψε σφάλμα κατά τη δημιουργία του αρχείου PDF. Παρακαλώ δοκιμάστε την εναλλακτική απομονωμένη εκτύπωση.");
+      const errorStr = err?.stack || err?.message || String(err);
+      alert(`Προέκυψε σφάλμα κατά τη δημιουργία του αρχείου PDF:\n\n${errorStr}`);
     } finally {
       setIsGeneratingPdf(false);
     }

@@ -418,8 +418,9 @@ export async function exportProgrammatismosPdf(
     const schoolYear = getCurrentSchoolYear();
     const schIdentifier = school.SchID || school.SchCode;
     doc.save(`Programmatismos_${schoolYear}_${effectiveTab}_${schIdentifier}.pdf`);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error generating Programmatismos PDF:', err);
-    alert('Προέκυψε σφάλμα κατά την παραγωγή του αρχείου PDF. Παρακαλούμε βεβαιωθείτε ότι τα πεδία περιέχουν έγκυρες τιμές.');
+    const errorStr = err?.stack || err?.message || String(err);
+    alert(`Προέκυψε σφάλμα κατά την παραγωγή του αρχείου PDF:\n\n${errorStr}`);
   }
 }
