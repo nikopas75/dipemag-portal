@@ -552,43 +552,28 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     '0': 'Άγαμος/η',
     '1': 'Έγγαμος/η',
     '2': 'Διαζευγμένος/η',
-    '3': 'Χήρος/α'
+    '3': 'Σε χηρεία',
+    '4': 'Σύμφωνο Συμβίωσης'
   };
 
-  const healthMap: Record<string, string> = {
-    '0': 'Όχι',
-    '1': '50-66%',
-    '2': '67-80%',
-    '3': 'άνω του 80%'
+  const getHealthSummary = (rec: any) => {
+    if (!rec) return 'Όχι';
+    const list: string[] = [];
+    if (rec.ΥγείαΙδίου === '1' || rec.ΥγείαΙδίου === 1) list.push('Ιδίου');
+    if (rec.ΥγείαΣυζύγου === '1' || rec.ΥγείαΣυζύγου === 1) list.push('Συζύγου');
+    if (rec.ΥγείαΤέκνων === '1' || rec.ΥγείαΤέκνων === 1) list.push('Τέκνων');
+    if (rec.ΥγείαΓονέων === '1' || rec.ΥγείαΓονέων === 1) list.push('Γονέων');
+    if (rec.ΥγείαΑδελφών === '1' || rec.ΥγείαΑδελφών === 1) list.push('Αδελφών');
+    return list.length > 0 ? list.join(', ') : 'Όχι';
   };
 
-  const getHealthSummary = (record: PlineRecord) => {
-    const parts: string[] = [];
-    if (record.ΛόγοιΥγείαςΙδίου && record.ΛόγοιΥγείαςΙδίου !== '0') {
-      parts.push(`Ιδίου: ${healthMap[record.ΛόγοιΥγείαςΙδίου]}`);
-    }
-    if (record.ΛόγοιΥγείαςΣυζ && record.ΛόγοιΥγείαςΣυζ !== '0') {
-      parts.push(`Συζύγου: ${healthMap[record.ΛόγοιΥγείαςΣυζ]}`);
-    }
-    if (record.ΛόγοιΥγείαςΤεκν && record.ΛόγοιΥγείαςΤεκν !== '0') {
-      parts.push(`Τέκνων: ${healthMap[record.ΛόγοιΥγείαςΤεκν]}`);
-    }
-    if (record.ΛόγοιΥγείαςΓον && record.ΛόγοιΥγείαςΓον !== '0') {
-      parts.push(`Γονέων: ${healthMap[record.ΛόγοιΥγείαςΓον]}`);
-    }
-    if (record.ΛόγοιΥγείαςΑδερ && record.ΛόγοιΥγείαςΑδερ !== '0') {
-      parts.push(`Αδερφών: ${healthMap[record.ΛόγοιΥγείαςΑδερ]}`);
-    }
-    return parts.length > 0 ? parts.join(' • ') : 'Όχι';
-  };
-
-  // Programmatic Vector PDF Generator (jsPDF + AutoTable)
   const generateProgrammaticPdf = async () => {
     if (!selectedRecord) return;
-    setIsGeneratingPdf(true);
     try {
+      setIsGeneratingPdf(true);
       const doc = new jsPDF('p', 'mm', 'a4');
-      await loadGreekFontToDoc(doc);
+      const hasFont = await loadGreekFontToDoc(doc);
+      const activeFont = hasFont ? 'Roboto' : 'helvetica';
 
       const appTitleStr = 
         applicationType === 'apospasi' ? 'ΑΙΤΗΣΗ ΑΠΟΣΠΑΣΗΣ ΕΝΤΟΣ ΠΥΣΠΕ' :
@@ -607,9 +592,9 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
       autoTable(doc, {
         startY: 33,
         theme: 'grid',
-        styles: { font: 'Roboto', fontStyle: 'normal', fontSize: 8.5, cellPadding: 1.8, textColor: [15, 23, 42], lineColor: [148, 163, 184], lineWidth: 0.15 },
-        headStyles: { font: 'Roboto', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] },
-        bodyStyles: { font: 'Roboto', fontStyle: 'normal' },
+        styles: { font: activeFont, fontStyle: 'normal', fontSize: 8.5, cellPadding: 1.8, textColor: [15, 23, 42], lineColor: [148, 163, 184], lineWidth: 0.15 },
+        headStyles: { font: activeFont, fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] },
+        bodyStyles: { font: activeFont, fontStyle: 'normal' },
         head: [['ΣΤΟΙΧΕΙΑ ΕΚΠΑΙΔΕΥΤΙΚΟΥ & ΥΠΗΡΕΣΙΑΚΗΣ ΚΑΤΑΣΤΑΣΗΣ', '']],
         body: [
           ['Ονοματεπώνυμο:', `${selectedRecord.Επώνυμο || ''} ${selectedRecord.Όνομα || ''} (${selectedRecord.Πατρώνυμο || ''})`],
@@ -620,8 +605,8 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
           ['Διεύθυνση Κατοικίας:', `${selectedRecord.Οδός || '-'} ${selectedRecord.Αριθμός || ''}, ${selectedRecord.Πόλη || '-'} (Τ.Κ. ${selectedRecord.ΤαχΚωδ || '-'})`]
         ],
         columnStyles: {
-          0: { cellWidth: 50, font: 'Roboto', fontStyle: 'normal', textColor: [0, 0, 0] },
-          1: { cellWidth: 'auto', font: 'Roboto', fontStyle: 'normal' }
+          0: { cellWidth: 50, font: activeFont, fontStyle: 'normal', textColor: [0, 0, 0] },
+          1: { cellWidth: 'auto', font: activeFont, fontStyle: 'normal' }
         }
       });
 
@@ -657,14 +642,14 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
       autoTable(doc, {
         startY: ((doc as any).lastAutoTable?.finalY || 100) + 4,
         theme: 'grid',
-        styles: { font: 'Roboto', fontStyle: 'normal', fontSize: 8.5, cellPadding: 2.2, textColor: [15, 23, 42], lineColor: [148, 163, 184], lineWidth: 0.15 },
-        headStyles: { font: 'Roboto', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] },
-        bodyStyles: { font: 'Roboto', fontStyle: 'normal' },
+        styles: { font: activeFont, fontStyle: 'normal', fontSize: 8.5, cellPadding: 2.2, textColor: [15, 23, 42], lineColor: [148, 163, 184], lineWidth: 0.15 },
+        headStyles: { font: activeFont, fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] },
+        bodyStyles: { font: activeFont, fontStyle: 'normal' },
         head: [['ΚΡΙΤΗΡΙΑ & ΔΗΛΩΘΕΝΤΑ ΣΤΟΙΧΕΙΑ ΕΚΠΑΙΔΕΥΤΙΚΟΥ', 'ΜΟΝΑΔΕΣ (Για υπηρεσιακή χρήση)']],
         body: criteriaBody,
         columnStyles: {
-          0: { font: 'Roboto', fontStyle: 'normal' },
-          1: { cellWidth: 45, halign: 'center', font: 'Roboto', fontStyle: 'normal' }
+          0: { font: activeFont, fontStyle: 'normal' },
+          1: { cellWidth: 45, halign: 'center', font: activeFont, fontStyle: 'normal' }
         }
       });
 
@@ -673,8 +658,8 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
       const prefsList = getPreferencesList();
 
       for (let idx = 0; idx < 10; idx++) {
-        const leftSch = prefsList[idx] || '';
-        const rightSch = prefsList[idx + 10] || '';
+        const leftSch = prefsList[idx] || "";
+        const rightSch = prefsList[idx + 10] || "";
         schoolsBody.push([
           `${idx + 1}.`,
           leftSch,
@@ -685,17 +670,17 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
 
       autoTable(doc, {
         startY: ((doc as any).lastAutoTable?.finalY || 150) + 4,
-        theme: 'grid',
-        styles: { font: 'Roboto', fontStyle: 'normal', fontSize: 8, cellPadding: 1.5, textColor: [15, 23, 42], lineColor: [148, 163, 184], lineWidth: 0.15 },
-        headStyles: { font: 'Roboto', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] },
-        bodyStyles: { font: 'Roboto', fontStyle: 'normal' },
-        head: [['Α/Α', 'ΣΧΟΛΙΚΗ ΜΟΝΑΔΑ (1η ΣΤΗΛΗ)', 'Α/Α', 'ΣΧΟΛΙΚΗ ΜΟΝΑΔΑ (2η ΣΤΗΛΗ)']],
+        theme: "grid",
+        styles: { font: activeFont, fontStyle: "normal", fontSize: 8, cellPadding: 1.5, textColor: [15, 23, 42], lineColor: [148, 163, 184], lineWidth: 0.15 },
+        headStyles: { font: activeFont, fontStyle: "bold", fillColor: [241, 245, 249], textColor: [15, 23, 42] },
+        bodyStyles: { font: activeFont, fontStyle: "normal" },
+        head: [["Α/Α", "ΣΧΟΛΙΚΗ ΜΟΝΑΔΑ (1η ΣΤΗΛΗ)", "Α/Α", "ΣΧΟΛΙΚΗ ΜΟΝΑΔΑ (2η ΣΤΗΛΗ)"]],
         body: schoolsBody,
         columnStyles: {
-          0: { cellWidth: 10, halign: 'center', font: 'Roboto', fontStyle: 'normal', textColor: [0, 0, 0] },
-          1: { cellWidth: 'auto', font: 'Roboto', fontStyle: 'normal' },
-          2: { cellWidth: 10, halign: 'center', font: 'Roboto', fontStyle: 'normal', textColor: [0, 0, 0] },
-          3: { cellWidth: 'auto', font: 'Roboto', fontStyle: 'normal' }
+          0: { cellWidth: 10, halign: "center", font: activeFont, fontStyle: "normal", textColor: [0, 0, 0] },
+          1: { cellWidth: "auto", font: activeFont, fontStyle: "normal" },
+          2: { cellWidth: 10, halign: "center", font: activeFont, fontStyle: "normal", textColor: [0, 0, 0] },
+          3: { cellWidth: "auto", font: activeFont, fontStyle: "normal" }
         }
       });
 
