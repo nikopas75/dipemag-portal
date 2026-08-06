@@ -131,9 +131,9 @@ function ensureEaitisiSchema($pdo) {
                 Προτιμήσεις TEXT DEFAULT NULL,
                 Χρονοσήμανση TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 Θεραπεία ENUM('0','1') DEFAULT '0',
-                Μεταπτυχιακό VARCHAR(50) DEFAULT '0',
+                Μεταπτυχιακό VARCHAR(50) DEFAULT '',
                 ΕιδικήΚΜ ENUM('0','1') DEFAULT '0',
-                ΚατηγορίαΚΠ VARCHAR(255) DEFAULT NULL
+                ΚατηγορίαΚΠ VARCHAR(255) DEFAULT ''
             ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
         ");
 

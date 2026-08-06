@@ -82,8 +82,10 @@ async function ensureCloneDatabase(pool: mysql.Pool, force = false) {
           ΛόγοιΥγείαςΓον ENUM('0','1','2','3') DEFAULT '0',
           ΛόγοιΥγείαςΑδερ ENUM('0','1','2','3') DEFAULT '0',
           Παρατηρήσεις TEXT DEFAULT NULL,
+          Θεραπεία ENUM('0','1') DEFAULT '0',
+          Μεταπτυχιακό VARCHAR(50) DEFAULT '',
           ΕιδικήΚΜ ENUM('0','1') DEFAULT '0',
-          ΚατηγορίαΚΠ VARCHAR(255) DEFAULT NULL,
+          ΚατηγορίαΚΠ VARCHAR(255) DEFAULT '',
           Υπεραριθμία ENUM('0', '1', '2', '3') DEFAULT '0',
           ΑρΠροτιμ INT DEFAULT 0,
           Προτιμήσεις TEXT DEFAULT NULL,
@@ -152,9 +154,9 @@ async function getTargetTable(pool: mysql.Pool): Promise<string> {
   try { await pool.query(`ALTER TABLE ${tableName} ADD COLUMN ΛόγοιΥγείαςΓον ENUM('0','1','2','3') DEFAULT '0'`); } catch (e) {}
   try { await pool.query(`ALTER TABLE ${tableName} ADD COLUMN ΛόγοιΥγείαςΑδερ ENUM('0','1','2','3') DEFAULT '0'`); } catch (e) {}
   try { await pool.query(`ALTER TABLE ${tableName} ADD COLUMN Θεραπεία ENUM('0','1') DEFAULT '0'`); } catch (e) {}
-  try { await pool.query(`ALTER TABLE ${tableName} ADD COLUMN Μεταπτυχιακό VARCHAR(50) DEFAULT '0'`); } catch (e) {}
+  try { await pool.query(`ALTER TABLE ${tableName} ADD COLUMN Μεταπτυχιακό VARCHAR(50) DEFAULT ''`); } catch (e) {}
   try { await pool.query(`ALTER TABLE ${tableName} ADD COLUMN ΕιδικήΚΜ ENUM('0','1') DEFAULT '0'`); } catch (e) {}
-  try { await pool.query(`ALTER TABLE ${tableName} ADD COLUMN ΚατηγορίαΚΠ VARCHAR(255) DEFAULT NULL`); } catch (e) {}
+  try { await pool.query(`ALTER TABLE ${tableName} ADD COLUMN ΚατηγορίαΚΠ VARCHAR(255) DEFAULT ''`); } catch (e) {}
   return tableName;
 }
 
@@ -1324,9 +1326,12 @@ async function startServer() {
     try {
       const table = await getTargetTable(externalPool);
       
-      // Delete all records from primary teachers table
-      const [result]: any = await externalPool.query(`DELETE FROM ${table}`);
-      const count = result.affectedRows || 0;
+      // Get count before truncation
+      const [countRows]: any = await externalPool.query(`SELECT COUNT(*) AS cnt FROM ${table}`);
+      const count = countRows && countRows[0] ? countRows[0].cnt : 0;
+
+      // Truncate primary teachers table to clear all records and reset AUTO_INCREMENT to 1
+      await externalPool.query(`TRUNCATE TABLE ${table}`);
       
       addAuditLog('plinetamag', `MIGRATION CLEAR: Truncated table ${table}`, 'DELETE', count, 0);
       

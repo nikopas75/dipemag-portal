@@ -556,15 +556,46 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
     '4': 'Σύμφωνο Συμβίωσης'
   };
 
-  const getHealthSummary = (rec: any) => {
-    if (!rec) return 'Όχι';
-    const list: string[] = [];
-    if (rec.ΥγείαΙδίου === '1' || rec.ΥγείαΙδίου === 1) list.push('Ιδίου');
-    if (rec.ΥγείαΣυζύγου === '1' || rec.ΥγείαΣυζύγου === 1) list.push('Συζύγου');
-    if (rec.ΥγείαΤέκνων === '1' || rec.ΥγείαΤέκνων === 1) list.push('Τέκνων');
-    if (rec.ΥγείαΓονέων === '1' || rec.ΥγείαΓονέων === 1) list.push('Γονέων');
-    if (rec.ΥγείαΑδελφών === '1' || rec.ΥγείαΑδελφών === 1) list.push('Αδελφών');
-    return list.length > 0 ? list.join(', ') : 'Όχι';
+  const healthOptionMap: Record<string, string> = {
+    '1': 'Ποσοστό Αναπηρίας 50-66%',
+    '2': 'Ποσοστό Αναπηρίας 67-80%',
+    '3': 'Ποσοστό Αναπηρίας άνω του 80%'
+  };
+
+  const isTruthyValue = (val: any) => {
+    if (val === undefined || val === null) return false;
+    const str = String(val).trim();
+    return str !== '' && str !== '0' && str !== 'Όχι' && str !== 'Καμία' && str !== 'false' && str !== 'null' && str !== 'undefined' && str !== 'Τίποτα';
+  };
+
+  const getHealthItems = (rec: any): string[] => {
+    if (!rec) return [];
+    const items: string[] = [];
+
+    const fields: { key: string; alias?: string; label: string }[] = [
+      { key: 'ΛόγοιΥγείαςΙδίου', alias: 'ΥγείαΙδίου', label: 'Λόγοι Υγείας Ιδίου' },
+      { key: 'ΛόγοιΥγείαςΣυζ', alias: 'ΥγείαΣυζύγου', label: 'Λόγοι Υγείας Συζύγου' },
+      { key: 'ΛόγοιΥγείαςΤεκν', alias: 'ΥγείαΤέκνων', label: 'Λόγοι Υγείας Τέκνων' },
+      { key: 'ΛόγοιΥγείαςΓον', alias: 'ΥγείαΓονέων', label: 'Λόγοι Υγείας Γονέων' },
+      { key: 'ΛόγοιΥγείαςΑδερ', alias: 'ΥγείαΑδελφών', label: 'Λόγοι Υγείας Αδερφών' }
+    ];
+
+    for (const f of fields) {
+      const val = rec[f.key] ?? (f.alias ? rec[f.alias] : undefined);
+      if (isTruthyValue(val)) {
+        const valStr = String(val).trim();
+        const mapped = healthOptionMap[valStr] || valStr;
+        items.push(`${f.label}: ${mapped}`);
+      }
+    }
+
+    if (items.length === 0 && isTruthyValue(rec.ΛόγοιΥγείας)) {
+      const valStr = String(rec.ΛόγοιΥγείας).trim();
+      const mapped = healthOptionMap[valStr] || valStr;
+      items.push(`Σοβαροί Λόγοι Υγείας: ${mapped}`);
+    }
+
+    return items;
   };
 
   const generateProgrammaticPdf = async () => {
@@ -619,20 +650,20 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
         `Συνυπηρέτηση: ${selectedRecord.Συνυπηρέτηση || '-'}`
       ];
 
-      const healthSum = getHealthSummary(selectedRecord);
-      if (healthSum && healthSum !== 'Όχι') {
-        criteriaList.push(`Σοβαροί Λόγοι Υγείας: ${healthSum}`);
-      }
-      if (selectedRecord.Θεραπεία === '1') {
+      const healthItems = getHealthItems(selectedRecord);
+      healthItems.forEach(item => {
+        criteriaList.push(item);
+      });
+      if (isTruthyValue(selectedRecord.Θεραπεία)) {
         criteriaList.push('Θεραπεία Εξωσωματικής Γονιμοποίησης: Ναι');
       }
-      if (selectedRecord.Μεταπτυχιακό && selectedRecord.Μεταπτυχιακό !== '0') {
+      if (isTruthyValue(selectedRecord.Μεταπτυχιακό)) {
         criteriaList.push(`Διαδικασία Λήψης Μεταπτυχιακού / Σπουδές: ${selectedRecord.Μεταπτυχιακό}`);
       }
-      if (selectedRecord.ΕιδικήΚΜ === '1') {
+      if (isTruthyValue(selectedRecord.ΕιδικήΚΜ)) {
         criteriaList.push('Ειδική κατηγορία μετάθεσης (παρ. 1, άρθρο 13, ΠΔ 50/1996): Ναι');
       }
-      if (selectedRecord.ΚατηγορίαΚΠ && selectedRecord.ΚατηγορίαΚΠ !== 'Κανένα' && selectedRecord.ΚατηγορίαΚΠ !== '') {
+      if (isTruthyValue(selectedRecord.ΚατηγορίαΚΠ)) {
         criteriaList.push(`Κατηγορία Κατά Προτεραιότητα: ${selectedRecord.ΚατηγορίαΚΠ}`);
       }
 
@@ -1746,7 +1777,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
                             onChange={e => handleFieldChange('ΚατηγορίαΚΠ', e.target.value || null)}
                             className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
                           >
-                            <option value="">Κανένα</option>
+                            <option value="">Καμία</option>
                             <option value="Σύζυγος στρατιωτικού των Ενόπλων Δυνάμεων">
                               Σύζυγος στρατιωτικού των Ενόπλων Δυνάμεων
                             </option>
@@ -2601,28 +2632,28 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
                                 }
                               ];
 
-                              const healthSum = getHealthSummary(selectedRecord);
-                              if (healthSum && healthSum !== 'Όχι') {
+                              const healthItems = getHealthItems(selectedRecord);
+                              healthItems.forEach(item => {
                                 dynamicRows.push({
-                                  text: `Σοβαροί Λόγοι Υγείας: ${healthSum}`
+                                  text: item
                                 });
-                              }
-                              if (selectedRecord.Θεραπεία === '1') {
+                              });
+                              if (isTruthyValue(selectedRecord.Θεραπεία)) {
                                 dynamicRows.push({
                                   text: 'Θεραπεία Εξωσωματικής Γονιμοποίησης: Ναι'
                                 });
                               }
-                              if (selectedRecord.Μεταπτυχιακό && selectedRecord.Μεταπτυχιακό !== '0') {
+                              if (isTruthyValue(selectedRecord.Μεταπτυχιακό)) {
                                 dynamicRows.push({
                                   text: `Διαδικασία Λήψης Μεταπτυχιακού / Σπουδές: ${selectedRecord.Μεταπτυχιακό}`
                                 });
                               }
-                              if (selectedRecord.ΕιδικήΚΜ === '1') {
+                              if (isTruthyValue(selectedRecord.ΕιδικήΚΜ)) {
                                 dynamicRows.push({
                                   text: 'Ειδική κατηγορία μετάθεσης (παρ. 1, άρθρο 13, ΠΔ 50/1996): Ναι'
                                 });
                               }
-                              if (selectedRecord.ΚατηγορίαΚΠ && selectedRecord.ΚατηγορίαΚΠ !== 'Κανένα' && selectedRecord.ΚατηγορίαΚΠ !== '') {
+                              if (isTruthyValue(selectedRecord.ΚατηγορίαΚΠ)) {
                                 dynamicRows.push({
                                   text: `Κατηγορία Κατά Προτεραιότητα: ${selectedRecord.ΚατηγορίαΚΠ}`
                                 });
