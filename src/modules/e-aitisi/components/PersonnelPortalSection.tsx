@@ -655,7 +655,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
       criteriaBody.push(['ΣΥΝΟΛΟ ΜΟΡΙΩΝ (Αθροισμα Υπηρεσίας):', '']);
 
       autoTable(doc, {
-        startY: (doc as any).lastAutoTable.finalY + 4,
+        startY: ((doc as any).lastAutoTable?.finalY || 100) + 4,
         theme: 'grid',
         styles: { font: 'Roboto', fontStyle: 'normal', fontSize: 8.5, cellPadding: 2.2, textColor: [15, 23, 42], lineColor: [148, 163, 184], lineWidth: 0.15 },
         headStyles: { font: 'Roboto', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] },
@@ -684,7 +684,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
       }
 
       autoTable(doc, {
-        startY: (doc as any).lastAutoTable.finalY + 4,
+        startY: ((doc as any).lastAutoTable?.finalY || 150) + 4,
         theme: 'grid',
         styles: { font: 'Roboto', fontStyle: 'normal', fontSize: 8, cellPadding: 1.5, textColor: [15, 23, 42], lineColor: [148, 163, 184], lineWidth: 0.15 },
         headStyles: { font: 'Roboto', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] },
@@ -699,7 +699,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
         }
       });
 
-      const finalY = (doc as any).lastAutoTable.finalY + 12;
+      const finalY = ((doc as any).lastAutoTable?.finalY || 200) + 12;
       doc.setFontSize(9);
       if (finalY > 265) {
         doc.addPage();

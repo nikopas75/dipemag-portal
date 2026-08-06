@@ -182,7 +182,7 @@ export async function exportProgrammatismosPdf(
           styles: grayscaleTableStyles
         });
 
-        curY = (doc as any).lastAutoTable.finalY + 6;
+        curY = ((doc as any).lastAutoTable?.finalY || curY) + 6;
 
         // Special structures
         autoTable(doc, {
@@ -198,7 +198,7 @@ export async function exportProgrammatismosPdf(
           styles: grayscaleTableStyles
         });
 
-        curY = (doc as any).lastAutoTable.finalY + 6;
+        curY = ((doc as any).lastAutoTable?.finalY || curY) + 6;
 
         // Special Staff for Eidiko Nip
         if (category === 'eid_nip') {
@@ -223,7 +223,7 @@ export async function exportProgrammatismosPdf(
             headStyles: grayscaleHeadStyles,
             styles: grayscaleTableStyles
           });
-          curY = (doc as any).lastAutoTable.finalY + 6;
+          curY = ((doc as any).lastAutoTable?.finalY || curY) + 6;
         }
       } else if (category === 'eid_dim') {
         const eidData = mathData as EidMathData;
@@ -238,7 +238,7 @@ export async function exportProgrammatismosPdf(
           headStyles: grayscaleHeadStyles,
           styles: grayscaleTableStyles
         });
-        curY = (doc as any).lastAutoTable.finalY + 6;
+        curY = ((doc as any).lastAutoTable?.finalY || curY) + 6;
       } else {
         // General Elementary (dim)
         const dimData = mathData as DimMathData;
@@ -254,7 +254,7 @@ export async function exportProgrammatismosPdf(
           styles: grayscaleTableStyles
         });
 
-        curY = (doc as any).lastAutoTable.finalY + 6;
+        curY = ((doc as any).lastAutoTable?.finalY || curY) + 6;
 
         // Special structures & All-day
         const isExtended = Number(dimData.OloType) === 1;
@@ -286,7 +286,7 @@ export async function exportProgrammatismosPdf(
           styles: grayscaleTableStyles
         });
 
-        curY = (doc as any).lastAutoTable.finalY + 6;
+        curY = ((doc as any).lastAutoTable?.finalY || curY) + 6;
       }
     }
 
@@ -318,7 +318,7 @@ export async function exportProgrammatismosPdf(
         styles: grayscaleTableStyles
       });
 
-      curY = (doc as any).lastAutoTable.finalY + 6;
+      curY = ((doc as any).lastAutoTable?.finalY || curY) + 6;
 
       // Special Staff for Eidiko Dimotiko
       if ((category === 'eid_dim' || category === 'eid_nip') && ekpData) {
@@ -343,7 +343,7 @@ export async function exportProgrammatismosPdf(
           headStyles: grayscaleHeadStyles,
           styles: grayscaleTableStyles
         });
-        curY = (doc as any).lastAutoTable.finalY + 6;
+        curY = ((doc as any).lastAutoTable?.finalY || curY) + 6;
       }
     }
 
