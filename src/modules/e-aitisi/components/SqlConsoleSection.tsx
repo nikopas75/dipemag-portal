@@ -1,22 +1,22 @@
 import React, { useState } from 'react';
 import { Terminal, Play, History, Download, CheckCircle2, AlertCircle, RefreshCw, Code2, Database } from 'lucide-react';
-import { SqlAuditLog, SqlQueryResult, UserProfile } from '../types';
+import { SqlAuditLog, SqlQueryResult } from '../types';
 import { generateSqlAuditPdf } from '../utils/pdfGenerator';
 
 interface SqlConsoleSectionProps {
   logs: SqlAuditLog[];
-  currentUser: UserProfile;
+  currentAdminUser?: string;
   onExecuteQuery: (query: string) => Promise<SqlQueryResult>;
   onRefreshLogs: () => void;
 }
 
 export const SqlConsoleSection: React.FC<SqlConsoleSectionProps> = ({
   logs,
-  currentUser,
+  currentAdminUser = 'plinetamag',
   onExecuteQuery,
   onRefreshLogs
 }) => {
-  const [customQuery, setCustomQuery] = useState('SELECT * FROM records WHERE status = "Approved" ORDER BY amount DESC;');
+  const [customQuery, setCustomQuery] = useState('SELECT * FROM e_aitisi.teachers LIMIT 10;');
   const [result, setResult] = useState<SqlQueryResult | null>(null);
   const [running, setRunning] = useState(false);
 
@@ -33,9 +33,9 @@ export const SqlConsoleSection: React.FC<SqlConsoleSectionProps> = ({
   };
 
   const sampleQueries = [
-    'SELECT * FROM records WHERE status = "Approved" ORDER BY amount DESC;',
-    'SELECT id, username, fullName, role, salaryBudget FROM users;',
-    'UPDATE records SET status = "Approved" WHERE status = "Pending";',
+    'SELECT * FROM e_aitisi.teachers LIMIT 10;',
+    'SELECT ΑρΜητρ, ΑΦΜ, Επώνυμο, Όνομα, Ειδικότητα FROM e_aitisi.teachers;',
+    'SHOW TABLES IN e_aitisi;',
     'SELECT * FROM audit_logs ORDER BY timestamp DESC;'
   ];
 
@@ -58,7 +58,7 @@ export const SqlConsoleSection: React.FC<SqlConsoleSectionProps> = ({
 
           <div className="flex items-center space-x-2 text-xs font-mono text-purple-300 bg-purple-950/60 px-3 py-1.5 rounded-lg border border-purple-800">
             <Database className="w-3.5 h-3.5" />
-            <span>Session: {currentUser.username}</span>
+            <span>Session: {currentAdminUser}</span>
           </div>
         </div>
 

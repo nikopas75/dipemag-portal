@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppId } from '../types';
-import { LayoutGrid, FileText, School, ClipboardCheck, Database, Server, GraduationCap, ShieldCheck, UserCheck } from 'lucide-react';
+import { LayoutGrid, FileText, School, ClipboardCheck, Database, Server, GraduationCap, ShieldCheck, UserCheck, Lock, LogOut } from 'lucide-react';
 
 interface HeaderProps {
   activeApp: AppId;
@@ -11,6 +11,10 @@ interface HeaderProps {
   setAitisiRole?: (role: 'landing' | 'teacher' | 'admin') => void;
   aitisiAdminSubTab?: 'portal' | 'sql' | 'ai';
   setAitisiAdminSubTab?: (tab: 'portal' | 'sql' | 'ai') => void;
+  programmatismosRole?: 'landing' | 'director' | 'admin';
+  setProgrammatismosRole?: (role: 'landing' | 'director' | 'admin') => void;
+  axiologisiRole?: 'landing' | 'admin';
+  setAxiologisiRole?: (role: 'landing' | 'admin') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,10 +26,42 @@ export const Header: React.FC<HeaderProps> = ({
   setAitisiRole,
   aitisiAdminSubTab = 'portal',
   setAitisiAdminSubTab,
+  programmatismosRole = 'landing',
+  setProgrammatismosRole,
+  axiologisiRole = 'landing',
+  setAxiologisiRole,
 }) => {
   const aitisiStatus = dbStatuses['aitisi'];
   const isConnected = Boolean(aitisiStatus?.connected);
   const hostName = aitisiStatus?.host || 'localhost';
+
+  const isAitisiLoggedIn = activeApp === 'aitisi' && aitisiRole !== 'landing';
+  const isProgrammatismosLoggedIn = activeApp === 'programmatismos' && programmatismosRole !== 'landing';
+  const isAxiologisiLoggedIn = activeApp === 'axiologisi' && axiologisiRole !== 'landing';
+  const isAnyLoggedIn = isAitisiLoggedIn || isProgrammatismosLoggedIn || isAxiologisiLoggedIn;
+
+  const getNavButtonClass = (targetApp: AppId, activeColorClass: string) => {
+    if (activeApp === targetApp) {
+      return `${activeColorClass} text-white shadow-sm cursor-default font-semibold`;
+    }
+    if (isAnyLoggedIn) {
+      return 'text-slate-500 bg-slate-800/40 opacity-40 cursor-not-allowed select-none';
+    }
+    return 'text-slate-300 hover:text-white hover:bg-slate-700/50 font-medium';
+  };
+
+  const getNavTitle = (targetApp: AppId, appLabel: string) => {
+    if (isAnyLoggedIn && activeApp !== targetApp) {
+      return `Ενεργή συνεδρία: Αποσυνδεθείτε πρώτα για να μεταβείτε στην εφαρμογή ${appLabel}`;
+    }
+    return undefined;
+  };
+
+  const handleBrandClick = () => {
+    if (isAnyLoggedIn) return;
+    if (activeApp === 'aitisi' && setAitisiRole) setAitisiRole('landing');
+    setActiveApp('hub');
+  };
 
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-md print:hidden">
@@ -34,11 +70,10 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Brand logo & title */}
           {activeApp === 'aitisi' ? (
             <div
-              className="flex items-center space-x-3 cursor-pointer group"
-              onClick={() => {
-                if (aitisiRole !== 'teacher' && setAitisiRole) setAitisiRole('landing');
-                else setActiveApp('hub');
-              }}
+              className={`flex items-center space-x-3 transition-opacity ${
+                isAnyLoggedIn ? 'cursor-default opacity-90' : 'cursor-pointer group'
+              }`}
+              onClick={handleBrandClick}
             >
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-900/30 group-hover:scale-105 transition-transform shrink-0">
                 <GraduationCap className="w-5 h-5 text-white" />
@@ -55,7 +90,12 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
           ) : (
-            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveApp('hub')}>
+            <div
+              className={`flex items-center space-x-3 transition-opacity ${
+                isAnyLoggedIn ? 'cursor-default opacity-90' : 'cursor-pointer'
+              }`}
+              onClick={handleBrandClick}
+            >
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-between p-2 shadow-inner shrink-0">
                 <Database className="w-6 h-6 text-white" />
               </div>
@@ -64,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-300">
                     ΔΠΕ Μαγνησίας
                   </span>
-                  <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-blue-900/60 text-blue-300 border border-blue-700/50">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-900/60 text-blue-300 border border-blue-700/50">
                     v2.0
                   </span>
                 </div>
@@ -78,66 +118,79 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Apps Navigation Switcher */}
             <nav className="flex items-center space-x-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
               <button
-                onClick={() => setActiveApp('hub')}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeApp === 'hub'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
-                }`}
+                disabled={isAnyLoggedIn}
+                onClick={() => !isAnyLoggedIn && setActiveApp('hub')}
+                title={getNavTitle('hub', 'Κεντρική')}
+                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all ${getNavButtonClass(
+                  'hub',
+                  'bg-blue-600'
+                )}`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
                 <span>Κεντρική</span>
               </button>
 
               <button
-                onClick={() => setActiveApp('aitisi')}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeApp === 'aitisi'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
-                }`}
+                disabled={isAnyLoggedIn && activeApp !== 'aitisi'}
+                onClick={() => !(isAnyLoggedIn && activeApp !== 'aitisi') && setActiveApp('aitisi')}
+                title={getNavTitle('aitisi', '1. Η-Αίτηση')}
+                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all ${getNavButtonClass(
+                  'aitisi',
+                  'bg-emerald-600'
+                )}`}
               >
                 <FileText className="w-3.5 h-3.5" />
                 <span>1. Η-Αίτηση</span>
+                {isAnyLoggedIn && activeApp !== 'aitisi' && <Lock className="w-3 h-3 ml-0.5 text-slate-500" />}
               </button>
 
               <button
-                onClick={() => setActiveApp('programmatismos')}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeApp === 'programmatismos'
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
-                }`}
+                disabled={isAnyLoggedIn && activeApp !== 'programmatismos'}
+                onClick={() => !(isAnyLoggedIn && activeApp !== 'programmatismos') && setActiveApp('programmatismos')}
+                title={getNavTitle('programmatismos', '2. Προγραμματισμός')}
+                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all ${getNavButtonClass(
+                  'programmatismos',
+                  'bg-amber-600'
+                )}`}
               >
                 <School className="w-3.5 h-3.5" />
                 <span>2. Προγραμματισμός</span>
+                {isAnyLoggedIn && activeApp !== 'programmatismos' && <Lock className="w-3 h-3 ml-0.5 text-slate-500" />}
               </button>
 
               <button
-                onClick={() => setActiveApp('axiologisi')}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeApp === 'axiologisi'
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
-                }`}
+                disabled={isAnyLoggedIn && activeApp !== 'axiologisi'}
+                onClick={() => !(isAnyLoggedIn && activeApp !== 'axiologisi') && setActiveApp('axiologisi')}
+                title={getNavTitle('axiologisi', '3. Αξιολόγηση')}
+                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all ${getNavButtonClass(
+                  'axiologisi',
+                  'bg-purple-600'
+                )}`}
               >
                 <ClipboardCheck className="w-3.5 h-3.5" />
                 <span>3. Αξιολόγηση</span>
+                {isAnyLoggedIn && activeApp !== 'axiologisi' && <Lock className="w-3 h-3 ml-0.5 text-slate-500" />}
               </button>
             </nav>
           </div>
 
           {/* Right Section: Role Badge & Single MySQL Connection Button */}
           <div className="flex items-center space-x-2">
-            {activeApp === 'aitisi' && aitisiRole !== 'landing' && (
+            {isAnyLoggedIn && (
               <div className="flex items-center space-x-2 pr-1 border-r border-slate-800">
                 <span className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                  aitisiRole === 'admin' 
-                    ? 'bg-purple-500/10 text-purple-300 border border-purple-500/30' 
-                    : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
+                  isAitisiLoggedIn
+                    ? (aitisiRole === 'admin' ? 'bg-purple-500/10 text-purple-300 border border-purple-500/30' : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30')
+                    : isProgrammatismosLoggedIn
+                      ? (programmatismosRole === 'admin' ? 'bg-purple-500/10 text-purple-300 border border-purple-500/30' : 'bg-amber-500/10 text-amber-300 border border-amber-500/30')
+                      : 'bg-purple-500/10 text-purple-300 border border-purple-500/30'
                 }`}>
-                  {aitisiRole === 'admin' ? <ShieldCheck className="w-3.5 h-3.5 text-purple-400" /> : <UserCheck className="w-3.5 h-3.5 text-emerald-400" />}
-                  <span>{aitisiRole === 'admin' ? 'Διαχειριστής' : 'Εκπαιδευτικός'}</span>
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>
+                    {isAitisiLoggedIn && (aitisiRole === 'admin' ? 'Διαχειριστής' : 'Εκπαιδευτικός')}
+                    {isProgrammatismosLoggedIn && (programmatismosRole === 'admin' ? 'Διαχειριστής' : 'Διευθυντής')}
+                    {isAxiologisiLoggedIn && 'Διαχειριστής'}
+                  </span>
                 </span>
               </div>
             )}
@@ -171,33 +224,57 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="lg:hidden border-t border-slate-800 px-2 py-2 bg-slate-900/95 flex flex-wrap gap-2 items-center justify-between">
         <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5">
           <button
-            onClick={() => setActiveApp('hub')}
+            disabled={isAnyLoggedIn}
+            onClick={() => !isAnyLoggedIn && setActiveApp('hub')}
+            title={getNavTitle('hub', 'Κεντρική')}
             className={`flex-none px-2.5 py-1 rounded text-xs font-medium ${
-              activeApp === 'hub' ? 'bg-blue-600 text-white' : 'text-slate-400 bg-slate-800'
+              activeApp === 'hub'
+                ? 'bg-blue-600 text-white'
+                : isAnyLoggedIn
+                  ? 'text-slate-600 bg-slate-800/40 opacity-40 cursor-not-allowed select-none'
+                  : 'text-slate-400 bg-slate-800 hover:text-white'
             }`}
           >
             Κεντρική
           </button>
           <button
-            onClick={() => setActiveApp('aitisi')}
+            disabled={isAnyLoggedIn && activeApp !== 'aitisi'}
+            onClick={() => !(isAnyLoggedIn && activeApp !== 'aitisi') && setActiveApp('aitisi')}
+            title={getNavTitle('aitisi', '1. Η-Αίτηση')}
             className={`flex-none px-2.5 py-1 rounded text-xs font-medium ${
-              activeApp === 'aitisi' ? 'bg-emerald-600 text-white' : 'text-slate-400 bg-slate-800'
+              activeApp === 'aitisi'
+                ? 'bg-emerald-600 text-white'
+                : isAnyLoggedIn
+                  ? 'text-slate-600 bg-slate-800/40 opacity-40 cursor-not-allowed select-none'
+                  : 'text-slate-400 bg-slate-800 hover:text-white'
             }`}
           >
             1. Η-Αίτηση
           </button>
           <button
-            onClick={() => setActiveApp('programmatismos')}
+            disabled={isAnyLoggedIn && activeApp !== 'programmatismos'}
+            onClick={() => !(isAnyLoggedIn && activeApp !== 'programmatismos') && setActiveApp('programmatismos')}
+            title={getNavTitle('programmatismos', '2. Προγραμματισμός')}
             className={`flex-none px-2.5 py-1 rounded text-xs font-medium ${
-              activeApp === 'programmatismos' ? 'bg-amber-600 text-white' : 'text-slate-400 bg-slate-800'
+              activeApp === 'programmatismos'
+                ? 'bg-amber-600 text-white'
+                : isAnyLoggedIn
+                  ? 'text-slate-600 bg-slate-800/40 opacity-40 cursor-not-allowed select-none'
+                  : 'text-slate-400 bg-slate-800 hover:text-white'
             }`}
           >
             2. Προγραμματισμός
           </button>
           <button
-            onClick={() => setActiveApp('axiologisi')}
+            disabled={isAnyLoggedIn && activeApp !== 'axiologisi'}
+            onClick={() => !(isAnyLoggedIn && activeApp !== 'axiologisi') && setActiveApp('axiologisi')}
+            title={getNavTitle('axiologisi', '3. Αξιολόγηση')}
             className={`flex-none px-2.5 py-1 rounded text-xs font-medium ${
-              activeApp === 'axiologisi' ? 'bg-purple-600 text-white' : 'text-slate-400 bg-slate-800'
+              activeApp === 'axiologisi'
+                ? 'bg-purple-600 text-white'
+                : isAnyLoggedIn
+                  ? 'text-slate-600 bg-slate-800/40 opacity-40 cursor-not-allowed select-none'
+                  : 'text-slate-400 bg-slate-800 hover:text-white'
             }`}
           >
             3. Αξιολόγηση

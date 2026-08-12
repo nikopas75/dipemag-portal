@@ -25,13 +25,22 @@ import {
 interface AxiologisiModuleProps {
   dbConfig: DbConfig;
   onUpdateDbConfig: (config: DbConfig) => void;
+  appRole?: 'landing' | 'admin';
+  setAppRole?: (role: 'landing' | 'admin') => void;
 }
 
 export const AxiologisiModule: React.FC<AxiologisiModuleProps> = ({
   dbConfig,
   onUpdateDbConfig,
+  appRole: propsAppRole,
+  setAppRole: propsSetAppRole,
 }) => {
-  const [appRole, setAppRole] = useState<'landing' | 'admin'>('landing');
+  const [internalAppRole, setInternalAppRole] = useState<'landing' | 'admin'>('landing');
+  const appRole = propsAppRole !== undefined ? propsAppRole : internalAppRole;
+  const setAppRole = (role: 'landing' | 'admin') => {
+    if (propsSetAppRole) propsSetAppRole(role);
+    setInternalAppRole(role);
+  };
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [adminUsername, setAdminUsername] = useState('plinetamag');
   const [adminPassword, setAdminPassword] = useState('pl!n3tAmag');
@@ -93,9 +102,9 @@ export const AxiologisiModule: React.FC<AxiologisiModuleProps> = ({
             </span>
             <button
               onClick={() => setAppRole('landing')}
-              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition flex items-center space-x-1"
+              className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-3.5 h-3.5 text-purple-400" />
               <span>Έξοδος</span>
             </button>
           </div>

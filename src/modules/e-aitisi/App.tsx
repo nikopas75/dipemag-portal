@@ -175,22 +175,6 @@ export default function App({
     }
   };
 
-  const virtualAdminUser = {
-    id: 1,
-    username: currentAdminUser,
-    fullName: `Διαχειριστής ΒΔ (${currentAdminUser})`,
-    email: 'admin@e-aitisi.sch.gr',
-    role: 'Admin' as const,
-    departmentId: 1,
-    departmentName: 'Διεύθυνση Προσωπικού & Αιτήσεων e_aitisi',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    phone: '+30 210 3442000',
-    location: 'Αθήνα (ΥΠΑΙΘΑ)',
-    status: 'Active' as const,
-    salaryBudget: 0,
-    joinedDate: '2026-01-01'
-  };
-
   if (loading) {
     return (
       <div className="p-12 flex flex-col items-center justify-center text-slate-200">
@@ -309,7 +293,7 @@ export default function App({
             {adminSubTab === 'sql' && (
               <SqlConsoleSection
                 logs={logs}
-                currentUser={virtualAdminUser}
+                currentAdminUser={currentAdminUser}
                 onExecuteQuery={handleExecuteQuery}
                 onRefreshLogs={refreshData}
               />

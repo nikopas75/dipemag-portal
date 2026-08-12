@@ -22,6 +22,8 @@ import { ProgrammatismosAdminView } from './components/ProgrammatismosAdminView'
 interface ProgrammatismosModuleProps {
   dbConfig?: DbConfig;
   onUpdateDbConfig?: (cfg: DbConfig) => void;
+  appRole?: 'landing' | 'director' | 'admin';
+  setAppRole?: (role: 'landing' | 'director' | 'admin') => void;
 }
 
 export const safeApiFetch = async (urlPath: string, options?: RequestInit) => {
@@ -57,9 +59,17 @@ export const safeApiFetch = async (urlPath: string, options?: RequestInit) => {
   return { ok: false, data: { success: false, error: cleanMsg }, rawText: lastError };
 };
 
-export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () => {
+export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
+  appRole: propsAppRole,
+  setAppRole: propsSetAppRole
+}) => {
   // Navigation / View State
-  const [appRole, setAppRole] = useState<'landing' | 'director' | 'admin'>('landing');
+  const [internalAppRole, setInternalAppRole] = useState<'landing' | 'director' | 'admin'>('landing');
+  const appRole = propsAppRole !== undefined ? propsAppRole : internalAppRole;
+  const setAppRole = (role: 'landing' | 'director' | 'admin') => {
+    if (propsSetAppRole) propsSetAppRole(role);
+    setInternalAppRole(role);
+  };
 
   // Modals
   const [isDirectorLoginOpen, setIsDirectorLoginOpen] = useState(false);
@@ -927,9 +937,9 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = () =>
                 setAppRole('landing');
                 setActiveSchool(null);
               }}
-              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium transition flex items-center space-x-1 cursor-pointer"
+              className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-3.5 h-3.5 text-purple-400" />
               <span>Έξοδος</span>
             </button>
           </div>

@@ -123,6 +123,8 @@ export default function App() {
   const [activeApp, setActiveApp] = useState<AppId>('hub');
   const [aitisiRole, setAitisiRole] = useState<'landing' | 'teacher' | 'admin'>('landing');
   const [aitisiAdminSubTab, setAitisiAdminSubTab] = useState<'portal' | 'sql' | 'ai'>('portal');
+  const [programmatismosRole, setProgrammatismosRole] = useState<'landing' | 'director' | 'admin'>('landing');
+  const [axiologisiRole, setAxiologisiRole] = useState<'landing' | 'admin'>('landing');
   const [dbConfigs, setDbConfigs] = useState<Record<'aitisi' | 'programmatismos' | 'axiologisi', DbConfig>>(initialDbConfigs);
   const [dbStatuses, setDbStatuses] = useState<Record<string, { connected: boolean; host: string; database: string; message: string }>>({});
   const [isDbModalOpen, setIsDbModalOpen] = useState<boolean>(false);
@@ -265,6 +267,10 @@ export default function App() {
         setAitisiRole={setAitisiRole}
         aitisiAdminSubTab={aitisiAdminSubTab}
         setAitisiAdminSubTab={setAitisiAdminSubTab}
+        programmatismosRole={programmatismosRole}
+        setProgrammatismosRole={setProgrammatismosRole}
+        axiologisiRole={axiologisiRole}
+        setAxiologisiRole={setAxiologisiRole}
       />
 
       {/* Central Unified MySQL Connection Manager Modal */}
@@ -306,6 +312,8 @@ export default function App() {
             <ProgrammatismosModule
               dbConfig={dbConfigs.programmatismos}
               onUpdateDbConfig={(cfg) => handleUpdateConfig('programmatismos', cfg)}
+              appRole={programmatismosRole}
+              setAppRole={setProgrammatismosRole}
             />
           </Suspense>
         )}
@@ -315,6 +323,8 @@ export default function App() {
             <AxiologisiModule
               dbConfig={dbConfigs.axiologisi}
               onUpdateDbConfig={(cfg) => handleUpdateConfig('axiologisi', cfg)}
+              appRole={axiologisiRole}
+              setAppRole={setAxiologisiRole}
             />
           </Suspense>
         )}

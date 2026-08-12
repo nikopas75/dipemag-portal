@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import mysql from 'mysql2/promise';
-import { UserProfile, DataRecord, SqlAuditLog, MysqlConfig, SqlQueryResult } from './src/modules/e-aitisi/types';
+import { SqlAuditLog, MysqlConfig, SqlQueryResult } from './src/modules/e-aitisi/types';
 import { HARDCODED_DB_DEFAULTS } from './src/config/dbDefaults';
 
 let aiClient: GoogleGenAI | null = null;
@@ -194,27 +194,7 @@ let dbConfig: MysqlConfig = {
   activeConnectionMessage: 'Έλεγχος σύνδεσης με τη βάση δεδομένων MySQL...'
 };
 
-// Embedded Seed Data (clean e_aitisi admin fallback)
-let embeddedUsers: UserProfile[] = [
-  {
-    id: 1,
-    username: 'plinetamag',
-    fullName: 'Διαχειριστής ΒΔ e_aitisi',
-    email: 'admin@e-aitisi.sch.gr',
-    role: 'Admin',
-    departmentId: 1,
-    departmentName: 'Διαχείριση Εκπαιδευτικού Προσωπικού & Αιτήσεων',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    phone: '+30 210 3442000',
-    location: 'Αθήνα (ΥΠΑΙΘΑ)',
-    status: 'Active',
-    salaryBudget: 0,
-    joinedDate: '2026-01-01'
-  }
-];
-
-let embeddedRecords: DataRecord[] = [];
-
+// Embedded Settings Fallback
 let embeddedSettings: { [key: string]: string } = {
   phases: JSON.stringify([
     {
@@ -324,8 +304,6 @@ async function startServer() {
       isConnected: dbConfig.isConnected,
       activeConnectionMessage: dbConfig.activeConnectionMessage,
       stats: {
-        totalUsers: embeddedUsers.length,
-        totalRecords: embeddedRecords.length,
         totalAuditLogs: sqlAuditLogs.length
       }
     });
@@ -444,145 +422,6 @@ async function startServer() {
       addAuditLog('System', 'SWITCH TO EMBEDDED MYSQL SANDBOX ENGINE', 'CONNECT', 0, 2);
       return res.json({ success: true, config: dbConfig });
     }
-  });
-
-  // API Route: Login user
-  app.post('/api/auth/login', (req, res) => {
-    const { username } = req.body;
-    const startMs = performance.now();
-    const user = embeddedUsers.find(u => u.username.toLowerCase() === (username || '').toLowerCase()) || embeddedUsers[0];
-    
-    addAuditLog(user.username, `SELECT * FROM users WHERE username = '${user.username}' LIMIT 1;`, 'SELECT', 1, Math.round(performance.now() - startMs));
-    res.json({ success: true, user });
-  });
-
-  // API Route: Get all users
-  app.get('/api/users', (req, res) => {
-    const startMs = performance.now();
-    addAuditLog('Client', 'SELECT id, username, fullName, role, departmentName, salaryBudget, status FROM users;', 'SELECT', embeddedUsers.length, Math.round(performance.now() - startMs));
-    res.json(embeddedUsers);
-  });
-
-  // API Route: Update user profile
-  app.put('/api/users/:id', (req, res) => {
-    const id = Number(req.params.id);
-    const startMs = performance.now();
-    const idx = embeddedUsers.findIndex(u => u.id === id);
-    if (idx === -1) return res.status(404).json({ error: 'User not found' });
-
-    const updatedUser = { ...embeddedUsers[idx], ...req.body, id };
-    embeddedUsers[idx] = updatedUser;
-
-    // If name changed, update ownerName in records
-    if (req.body.fullName) {
-      embeddedRecords.forEach(r => {
-        if (r.userId === id) r.ownerName = req.body.fullName;
-      });
-    }
-
-    const sqlQuery = `UPDATE users SET fullName = '${updatedUser.fullName}', role = '${updatedUser.role}', phone = '${updatedUser.phone}', location = '${updatedUser.location}', salaryBudget = ${updatedUser.salaryBudget} WHERE id = ${id};`;
-    addAuditLog(updatedUser.username, sqlQuery, 'UPDATE', 1, Math.round(performance.now() - startMs));
-
-    res.json(updatedUser);
-  });
-
-  // API Route: Get data records
-  app.get('/api/records', (req, res) => {
-    const startMs = performance.now();
-    const { userId, category, search } = req.query;
-
-    let filtered = [...embeddedRecords];
-    if (userId && Number(userId) > 0) {
-      filtered = filtered.filter(r => r.userId === Number(userId));
-    }
-    if (category && category !== 'All') {
-      filtered = filtered.filter(r => r.category === category);
-    }
-    if (search) {
-      const q = String(search).toLowerCase();
-      filtered = filtered.filter(r => r.title.toLowerCase().includes(q) || r.clientOrProject.toLowerCase().includes(q) || r.ownerName.toLowerCase().includes(q));
-    }
-
-    let queryStr = `SELECT * FROM records`;
-    const conditions: string[] = [];
-    if (userId && Number(userId) > 0) conditions.push(`userId = ${userId}`);
-    if (category && category !== 'All') conditions.push(`category = '${category}'`);
-    if (conditions.length > 0) queryStr += ` WHERE ` + conditions.join(' AND ');
-    queryStr += ` ORDER BY recordDate DESC;`;
-
-    addAuditLog('Client', queryStr, 'SELECT', filtered.length, Math.round(performance.now() - startMs));
-    res.json(filtered);
-  });
-
-  // API Route: Add new data record
-  app.post('/api/records', (req, res) => {
-    const startMs = performance.now();
-    const newId = Math.max(...embeddedRecords.map(r => r.id), 1000) + 1;
-    const user = embeddedUsers.find(u => u.id === Number(req.body.userId)) || embeddedUsers[0];
-
-    const newRecord: DataRecord = {
-      id: newId,
-      userId: user.id,
-      ownerName: user.fullName,
-      category: req.body.category || 'Financial Invoice',
-      title: req.body.title || 'New Data Entry',
-      description: req.body.description || '',
-      amount: Number(req.body.amount) || 0,
-      status: req.body.status || 'Pending',
-      priority: req.body.priority || 'Medium',
-      clientOrProject: req.body.clientOrProject || 'Internal Operations',
-      recordDate: req.body.recordDate || new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0]
-    };
-
-    embeddedRecords.unshift(newRecord);
-
-    const sqlQuery = `INSERT INTO records (id, userId, ownerName, category, title, amount, status, priority, clientOrProject, recordDate) VALUES (${newRecord.id}, ${newRecord.userId}, '${newRecord.ownerName}', '${newRecord.category}', '${newRecord.title}', ${newRecord.amount}, '${newRecord.status}', '${newRecord.priority}', '${newRecord.clientOrProject}', '${newRecord.recordDate}');`;
-    addAuditLog(user.username, sqlQuery, 'INSERT', 1, Math.round(performance.now() - startMs));
-
-    res.status(201).json(newRecord);
-  });
-
-  // API Route: Update data record
-  app.put('/api/records/:id', (req, res) => {
-    const id = Number(req.params.id);
-    const startMs = performance.now();
-    const idx = embeddedRecords.findIndex(r => r.id === id);
-    if (idx === -1) return res.status(404).json({ error: 'Record not found' });
-
-    const updatedRecord: DataRecord = {
-      ...embeddedRecords[idx],
-      ...req.body,
-      id,
-      updatedAt: new Date().toISOString().split('T')[0]
-    };
-    if (req.body.userId) {
-      const u = embeddedUsers.find(x => x.id === Number(req.body.userId));
-      if (u) updatedRecord.ownerName = u.fullName;
-    }
-
-    embeddedRecords[idx] = updatedRecord;
-
-    const sqlQuery = `UPDATE records SET title = '${updatedRecord.title}', amount = ${updatedRecord.amount}, status = '${updatedRecord.status}', priority = '${updatedRecord.priority}', clientOrProject = '${updatedRecord.clientOrProject}' WHERE id = ${id};`;
-    addAuditLog(updatedRecord.ownerName, sqlQuery, 'UPDATE', 1, Math.round(performance.now() - startMs));
-
-    res.json(updatedRecord);
-  });
-
-  // API Route: Delete data record
-  app.delete('/api/records/:id', (req, res) => {
-    const id = Number(req.params.id);
-    const startMs = performance.now();
-    const idx = embeddedRecords.findIndex(r => r.id === id);
-    if (idx === -1) return res.status(404).json({ error: 'Record not found' });
-
-    const record = embeddedRecords[idx];
-    embeddedRecords.splice(idx, 1);
-
-    const sqlQuery = `DELETE FROM records WHERE id = ${id};`;
-    addAuditLog(record.ownerName, sqlQuery, 'DELETE', 1, Math.round(performance.now() - startMs));
-
-    res.json({ success: true, deletedId: id });
   });
 
   // API Route: Get audit logs
@@ -725,49 +564,6 @@ async function startServer() {
     let timeMs = Math.round(performance.now() - startMs) || 1;
 
     try {
-      if (upper.startsWith('SELECT') && upper.includes('FROM USERS')) {
-        addAuditLog(username, cleanQuery, 'SELECT', embeddedUsers.length, timeMs);
-        return res.json({
-          columns: ['id', 'username', 'fullName', 'email', 'role', 'departmentName', 'salaryBudget', 'status', 'location'],
-          rows: embeddedUsers,
-          affectedRows: embeddedUsers.length,
-          executionTimeMs: timeMs
-        });
-      }
-
-      if (upper.startsWith('SELECT') && upper.includes('FROM RECORDS')) {
-        let rows = [...embeddedRecords];
-        if (upper.includes("STATUS = 'APPROVED'") || upper.includes('STATUS = "APPROVED"')) {
-          rows = rows.filter(r => r.status === 'Approved');
-        }
-        if (upper.includes('ORDER BY AMOUNT DESC')) {
-          rows = rows.sort((a, b) => b.amount - a.amount);
-        }
-        addAuditLog(username, cleanQuery, 'SELECT', rows.length, timeMs);
-        return res.json({
-          columns: ['id', 'userId', 'ownerName', 'category', 'title', 'amount', 'status', 'priority', 'clientOrProject', 'recordDate'],
-          rows,
-          affectedRows: rows.length,
-          executionTimeMs: timeMs
-        });
-      }
-
-      if (upper.startsWith('UPDATE RECORDS SET STATUS')) {
-        let count = 0;
-        embeddedRecords.forEach(r => {
-          if (r.status === 'Pending') {
-            r.status = 'Approved';
-            count++;
-          }
-        });
-        addAuditLog(username, cleanQuery, 'UPDATE', count, timeMs);
-        return res.json({
-          columns: ['status', 'message'],
-          rows: [{ status: 'SUCCESS', message: `Updated ${count} records to Approved status.` }],
-          affectedRows: count,
-          executionTimeMs: timeMs
-        });
-      }
 
       if (upper.startsWith('SELECT') && (upper.includes('AUDIT_LOGS') || upper.includes('LOGS'))) {
         addAuditLog(username, cleanQuery, 'SELECT', sqlAuditLogs.length, timeMs);
@@ -824,7 +620,7 @@ async function startServer() {
           query_status: 'SUCCESS',
           database_engine: 'MySQL 8.0 Compatible Sandbox',
           message: 'Query executed successfully against virtual table schema.',
-          active_records: embeddedRecords.length,
+          active_records: 0,
           timestamp: new Date().toISOString()
         }],
         affectedRows: 1,
