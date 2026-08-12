@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { EvaluationCycle, TeacherEvaluation, DbConfig } from '../../types';
 import { sampleEvaluationCycles, sampleTeacherEvaluations } from '../../data/mockData';
+import { MySqlConsoleManager } from '../../components/MySqlConsoleManager';
 import {
   ClipboardCheck,
   Shield,
@@ -42,8 +43,8 @@ export const AxiologisiModule: React.FC<AxiologisiModuleProps> = ({
     setInternalAppRole(role);
   };
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
-  const [adminUsername, setAdminUsername] = useState('plinetamag');
-  const [adminPassword, setAdminPassword] = useState('pl!n3tAmag');
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
 
   const [cycles, setCycles] = useState<EvaluationCycle[]>(sampleEvaluationCycles);
@@ -83,7 +84,7 @@ export const AxiologisiModule: React.FC<AxiologisiModuleProps> = ({
               <ClipboardCheck className="w-6 h-6 text-purple-400" />
             </div>
             <h1 className="text-xl font-bold tracking-tight">
-              3. Αξιολόγηση Εκπαιδευτικών
+              Αξιολόγηση Εκπαιδευτικών
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-400/30">
               ΔΠΕ Μαγνησίας
@@ -325,36 +326,19 @@ export const AxiologisiModule: React.FC<AxiologisiModuleProps> = ({
               </table>
             </div>
 
-            {/* Database Credentials Inspector */}
-            <div className="bg-slate-950 text-white rounded-2xl p-5 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <div className="flex items-center space-x-2">
-                  <Database className="w-4 h-4 text-purple-400" />
-                  <span className="font-bold text-xs text-slate-200">
-                    Ρυθμίσεις Συνδεσιμότητας Βάσης Δεδομένων (axiologisi)
-                  </span>
-                </div>
-                <span className="text-[10px] text-purple-400 font-mono">Status: Connected</span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono text-slate-300">
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Host:</span>
-                  <span>{dbConfig.host}:{dbConfig.port}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Database Name:</span>
-                  <span className="text-purple-400">{dbConfig.database}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px]">DB User:</span>
-                  <span>{dbConfig.user}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Table Prefix:</span>
-                  <span className="text-amber-400">{dbConfig.tablePrefix}</span>
-                </div>
-              </div>
-            </div>
+            {/* Unified MySQL Console Manager */}
+            <MySqlConsoleManager
+              appName="axiologisi"
+              dbName={dbConfig.database}
+              defaultTableName={`${dbConfig.tablePrefix}evaluations`}
+              adminUser={adminUsername || 'plinetamag'}
+              sampleQueries={[
+                'SHOW TABLES;',
+                'SELECT * FROM axiologisi_evaluators LIMIT 10;',
+                'SELECT * FROM axiologisi_cycles LIMIT 10;',
+                'SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 10;'
+              ]}
+            />
           </div>
         </div>
       )}
@@ -396,7 +380,7 @@ export const AxiologisiModule: React.FC<AxiologisiModuleProps> = ({
                   type="text"
                   value={adminUsername}
                   onChange={(e) => setAdminUsername(e.target.value)}
-                  placeholder="π.χ. plinetamag"
+                  placeholder="Όνομα χρήστη..."
                   className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-100 font-mono text-xs"
                 />
               </div>

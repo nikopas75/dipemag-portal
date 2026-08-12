@@ -299,8 +299,6 @@ export default function App() {
               <EAitisiApp
                 appRole={aitisiRole}
                 setAppRole={setAitisiRole}
-                adminSubTab={aitisiAdminSubTab}
-                setAdminSubTab={setAitisiAdminSubTab}
                 onOpenDbModal={() => setIsDbModalOpen(true)}
               />
             </div>

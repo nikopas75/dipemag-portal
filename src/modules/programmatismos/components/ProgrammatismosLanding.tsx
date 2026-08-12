@@ -508,52 +508,60 @@ export const ProgrammatismosLanding: React.FC<ProgrammatismosLandingProps> = ({
 
       {/* ADMIN LOGIN MODAL */}
       {isAdminLoginOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 border border-slate-200 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2">
-                <Shield className="w-5 h-5 text-amber-600" />
-                <h3 className="text-base font-bold text-slate-900">
-                  Είσοδος Διαχειριστή (Admin)
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-3xl max-w-md w-full p-6 space-y-5 border border-amber-900/50 shadow-2xl animate-in fade-in zoom-in-95 relative overflow-hidden text-slate-100">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-amber-600/10 rounded-full blur-3xl pointer-events-none -mr-16 -mt-16"></div>
+
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-500/30 text-amber-400">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  Σύνδεση Διαχειριστή (Admin)
                 </h3>
               </div>
               <button
                 onClick={() => setIsAdminLoginOpen(false)}
-                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600"
+                className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {adminLoginError && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded-xl flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              <div className="p-3 bg-rose-950/80 border border-rose-800 text-rose-300 text-xs rounded-2xl flex items-center space-x-2 animate-in shake">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                 <span>{adminLoginError}</span>
               </div>
             )}
 
             <form onSubmit={onAdminLogin} className="space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Όνομα Χρήστη (Username):
                 </label>
                 <input
                   type="text"
+                  required
                   value={adminUsername}
                   onChange={e => setAdminUsername(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 text-slate-900 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 font-mono text-xs shadow-sm"
+                  placeholder="Όνομα χρήστη..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-amber-500 shadow-inner"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Κωδικός Πρόσβασης (Password):
                 </label>
                 <input
                   type="password"
+                  required
                   value={adminPassword}
                   onChange={e => setAdminPassword(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 text-slate-900 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 font-mono text-xs shadow-sm"
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-amber-500 shadow-inner"
                 />
               </div>
 
@@ -561,13 +569,13 @@ export const ProgrammatismosLanding: React.FC<ProgrammatismosLandingProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAdminLoginOpen(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50"
+                  className="px-4 py-2.5 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Ακύρωση
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow transition"
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold rounded-xl text-xs shadow-lg shadow-amber-950/40 transition-all cursor-pointer"
                 >
                   Σύνδεση
                 </button>

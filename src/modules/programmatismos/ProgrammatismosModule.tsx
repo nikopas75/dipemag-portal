@@ -119,7 +119,7 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
 
   // Admin Navigation State (2 Modes: Console vs Schools Viewer)
   const [adminMode, setAdminMode] = useState<'console' | 'schools'>('console');
-  const [consoleSubTab, setConsoleSubTab] = useState<'export' | 'maintenance' | 'security'>('export');
+  const [consoleSubTab, setConsoleSubTab] = useState<'export' | 'maintenance' | 'security' | 'sql_console'>('export');
   const [schoolsCategoryFilter, setSchoolsCategoryFilter] = useState<'dim' | 'nip' | 'eid_dim' | 'eid_nip'>('dim');
   const [schoolsViewFormat, setSchoolsViewFormat] = useState<'overview' | 'catalog'>('overview');
 
@@ -905,7 +905,7 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
               <Building className="w-6 h-6 text-amber-400" />
             </div>
             <h1 className="text-xl font-bold tracking-tight">
-              2. Προγραμματισμός Σχολικών Μονάδων
+              Προγραμματισμός Σχολικών Μονάδων
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-400/30">
               ΔΠΕ Μαγνησίας

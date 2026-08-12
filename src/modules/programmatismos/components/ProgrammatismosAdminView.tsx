@@ -1,5 +1,6 @@
 import React from 'react';
 import { safeApiFetch } from '../ProgrammatismosModule';
+import { MySqlConsoleManager } from '../../../components/MySqlConsoleManager';
 import {
   Shield,
   Terminal,
@@ -31,8 +32,8 @@ interface ProgrammatismosAdminViewProps {
   // Modes & Navigation
   adminMode: 'console' | 'schools';
   setAdminMode: (mode: 'console' | 'schools') => void;
-  consoleSubTab: 'export' | 'maintenance' | 'security';
-  setConsoleSubTab: (tab: 'export' | 'maintenance' | 'security') => void;
+  consoleSubTab: 'export' | 'maintenance' | 'security' | 'sql_console';
+  setConsoleSubTab: (tab: 'export' | 'maintenance' | 'security' | 'sql_console') => void;
   schoolsCategoryFilter: 'dim' | 'nip' | 'eid_dim' | 'eid_nip';
   setSchoolsCategoryFilter: (filter: 'dim' | 'nip' | 'eid_dim' | 'eid_nip') => void;
   schoolsViewFormat: 'overview' | 'catalog';
@@ -390,6 +391,17 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
             >
               <Lock className="w-4 h-4" />
               <span>3. Ασφάλεια &amp; Λογαριασμοί Διαχειριστών</span>
+            </button>
+            <button
+              onClick={() => setConsoleSubTab('sql_console')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
+                consoleSubTab === 'sql_console'
+                  ? 'bg-amber-600 text-white shadow'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Terminal className="w-4 h-4" />
+              <span>4. Κονσόλα SQL</span>
             </button>
           </div>
 
@@ -1105,38 +1117,6 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                   )}
                 </div>
               </div>
-
-              {/* SQL Query Console */}
-              <div className="p-5 bg-slate-950 rounded-2xl border border-slate-800 text-slate-100 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-slate-200 flex items-center space-x-2">
-                    <Terminal className="w-4 h-4 text-amber-400" />
-                    <span>Κονσόλα Εκτέλεσης SQL Queries</span>
-                  </h3>
-                  <button
-                    onClick={onExecuteSql}
-                    className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl shadow transition"
-                  >
-                    Εκτέλεση Query
-                  </button>
-                </div>
-                <textarea
-                  value={sqlQuery}
-                  onChange={e => setSqlQuery(e.target.value)}
-                  rows={3}
-                  className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-500"
-                />
-                {sqlError && (
-                  <div className="p-3 bg-rose-950/80 border border-rose-800 text-rose-300 text-xs rounded-xl font-mono">
-                    {sqlError}
-                  </div>
-                )}
-                {sqlResult && (
-                  <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-xs font-mono max-h-60 overflow-auto">
-                    <pre className="text-emerald-400">{JSON.stringify(sqlResult, null, 2)}</pre>
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
@@ -1266,6 +1246,23 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                 </div>
               </div>
             </div>
+          )}
+
+          {/* SUB-TAB 4: SQL CONSOLE */}
+          {consoleSubTab === 'sql_console' && (
+            <MySqlConsoleManager
+              appName="programmatismos"
+              dbName="programmatismos"
+              defaultTableName="dim_users"
+              adminUser="plinetamag"
+              sampleQueries={[
+                'SELECT * FROM dim_users LIMIT 10;',
+                'SELECT * FROM nip_users LIMIT 10;',
+                'SELECT * FROM eid_users LIMIT 10;',
+                'SHOW TABLES;',
+                'SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 10;'
+              ]}
+            />
           )}
         </div>
       )}

@@ -3,12 +3,13 @@ import {
   Download, RefreshCw, Trash2, Database, ShieldAlert, FileSpreadsheet, 
   Search, Filter, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, 
   Upload, Sparkles, Key, FileText, Check, Settings, Activity, Server, Users, Eye, EyeOff,
-  Calendar
+  Calendar, Terminal
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { loadGreekFontToDoc } from '../../../utils/pdfFontLoader';
 import { PlineRecord } from './PersonnelPortalSection';
+import { MySqlConsoleManager } from '../../../components/MySqlConsoleManager';
 
 interface AdminDashboardPaneProps {
   onRefreshAllRecords: () => void;
@@ -23,8 +24,8 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
   onSelectTeacherForEditing,
   currentAdminUser
 }) => {
-  // Layering State: 'schedule' (Προγραμματισμός) | 'export' (Εξαγωγή) | 'db' (Διαχείριση) | 'others' (Λοιπά)
-  const [activeLayer, setActiveLayer] = useState<'schedule' | 'export' | 'db' | 'others'>('schedule');
+  // Layering State: 'schedule' (Προγραμματισμός) | 'export' (Εξαγωγή) | 'db' (Διαχείριση) | 'others' (Λοιπά) | 'sql_console' (Κονσόλα SQL)
+  const [activeLayer, setActiveLayer] = useState<'schedule' | 'export' | 'db' | 'others' | 'sql_console'>('schedule');
 
   // Master records cache for real-time stats & filter querying
   const [allRecords, setAllRecords] = useState<PlineRecord[]>([]);
@@ -1199,12 +1200,24 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
           onClick={() => { setActiveLayer('others'); setErrorMsg(null); }}
           className={`px-4 py-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
             activeLayer === 'others'
+              ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10 rounded-t-xl'
+              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+          }`}
+        >
+          <Key className="w-4 h-4 text-indigo-400" />
+          <span>Κωδικοί & Ασφάλεια</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveLayer('sql_console'); setErrorMsg(null); }}
+          className={`px-4 py-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeLayer === 'sql_console'
               ? 'border-purple-500 text-purple-400 bg-purple-500/10 rounded-t-xl'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
           }`}
         >
-          <Settings className="w-4 h-4 text-purple-400" />
-          <span>Λοιπές Ενέργειες & Ασφάλεια</span>
+          <Terminal className="w-4 h-4 text-purple-400" />
+          <span>Κονσόλα SQL</span>
         </button>
       </div>
 
@@ -2061,11 +2074,11 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
           </div>
         )}
 
-        {/* ================= OTHER ACTIONS & SETTINGS ================= */}
+        {/* ================= SECURITY & PASSWORDS ================= */}
         {activeLayer === 'others' && (
           <div className="space-y-6 animate-in fade-in duration-200">
             
-            {/* Split row for Security Settings & Integrity Health Diagnostics */}
+            {/* Split row for Security Settings & Admin Accounts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Reset Password card */}
@@ -2179,147 +2192,6 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
               </div>
 
             </div>
-
-            {/* Diagnostic card */}
-            <div className="bg-slate-950/65 p-5 rounded-2xl border border-slate-800/80 space-y-4">
-              <div className="border-b border-slate-800/60 pb-2 flex justify-between items-center">
-                <div>
-                  <h4 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-blue-400" />
-                    Διαγνωστικός Έλεγχος Ακεραιότητας Σχήματος
-                  </h4>
-                  <p className="text-[11px] text-slate-400">
-                    Έλεγχος παρουσίας στηλών, τύπων δεδομένων και ακεραιότητας ξένων κλειδιών για τον πίνακα e_aitisi.teachers.
-                  </p>
-                </div>
-                <button
-                  onClick={runDiagnostics}
-                  disabled={testingHealth}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                >
-                  {testingHealth ? 'Εκτέλεση ελέγχου...' : 'Έναρξη Ελέγχου'}
-                </button>
-              </div>
-
-              {diagnosticResult && (
-                <div className="bg-slate-900/60 rounded-xl p-4 border border-slate-800/80 space-y-3 text-xs animate-in fade-in">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-850">
-                      <span className="text-[10px] text-slate-500 block">ΚΑΤΑΣΤΑΣΗ</span>
-                      <span className="font-bold text-emerald-400 flex items-center gap-1 mt-0.5">
-                        <Check className="w-3.5 h-3.5" /> ΥΓΙΗΣ ΒΑΣΗ
-                      </span>
-                    </div>
-                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-850">
-                      <span className="text-[10px] text-slate-500 block">ΚΙΝΗΤΗΡΑΣ ΒΔ</span>
-                      <span className="font-bold text-white mt-0.5 font-mono">{diagnosticResult.dbEngine}</span>
-                    </div>
-                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-850">
-                      <span className="text-[10px] text-slate-500 block">ΕΝΕΡΓΟΣ ΠΙΝΑΚΑΣ</span>
-                      <span className="font-bold text-white mt-0.5 font-mono">{diagnosticResult.tableName}</span>
-                    </div>
-                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-850">
-                      <span className="text-[10px] text-slate-500 block">INTEGRITY SCORE</span>
-                      <span className="font-bold text-blue-400 mt-0.5 font-mono">{diagnosticResult.integrityScore}</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <span className="text-[10px] font-bold text-slate-400 tracking-wider block mb-2">
-                      Επαλήθευση Στηλών Πίνακα
-                    </span>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {diagnosticResult.columns.map((c: any) => (
-                        <div key={c.name} className="bg-slate-950/40 p-2 rounded border border-slate-850/60 flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-slate-300 font-semibold">{c.name}</span>
-                          <span className="text-emerald-400 font-bold text-[9px] bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-900/40">
-                            {c.status}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {diagnosticResult.warnings.length > 0 && (
-                    <div className="p-2.5 bg-amber-950/20 border border-amber-900/30 rounded-lg text-amber-300 text-[11px] leading-relaxed">
-                      <strong>Παρατήρηση:</strong> {diagnosticResult.warnings[0]}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Audit Log card (Audit Trail) */}
-            <div className="bg-slate-950/65 p-5 rounded-2xl border border-slate-800/80 space-y-4">
-              <div className="border-b border-slate-800/60 pb-2 flex justify-between items-center">
-                <div>
-                  <h4 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-purple-400" />
-                    Ιστορικό Ερωτημάτων & Συμβάντων SQL (Audit Trail)
-                  </h4>
-                  <p className="text-[11px] text-slate-400">
-                    Καταγραφή και έλεγχος των τελευταίων ενεργειών που εκτελέστηκαν στη βάση e_aitisi.
-                  </p>
-                </div>
-                <button
-                  onClick={fetchAuditLogs}
-                  disabled={loadingLogs}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 rounded-lg text-xs transition-colors cursor-pointer"
-                >
-                  Ανανέωση Logs
-                </button>
-              </div>
-
-              <div className="max-h-[220px] overflow-y-auto rounded-xl border border-slate-850 text-[11px]">
-                <table className="w-full text-left border-collapse font-mono">
-                  <thead>
-                    <tr className="bg-slate-950 border-b border-slate-850 text-slate-400 font-bold text-[10px]">
-                      <th className="p-3">Χρονική Σήμανση</th>
-                      <th className="p-3">Χρήστης</th>
-                      <th className="p-3">Ενέργεια</th>
-                      <th className="p-3">Query / Εντολή SQL</th>
-                      <th className="p-3 text-right">Rows</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-850/40 text-slate-300">
-                    {loadingLogs ? (
-                      <tr>
-                        <td colSpan={5} className="p-6 text-center text-slate-500">
-                          Φόρτωση συμβάντων...
-                        </td>
-                      </tr>
-                    ) : auditLogs.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="p-6 text-center text-slate-500">
-                          Δεν υπάρχουν καταγεγραμμένα συμβάντα.
-                        </td>
-                      </tr>
-                    ) : (
-                      auditLogs.map(log => {
-                        let actionColor = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
-                        if (log.actionType === 'INSERT') actionColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
-                        else if (log.actionType === 'UPDATE') actionColor = 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-                        else if (log.actionType === 'DELETE') actionColor = 'text-rose-400 bg-rose-500/10 border-rose-500/20';
-
-                        return (
-                          <tr key={log.id} className="hover:bg-slate-900/30">
-                            <td className="p-3 text-slate-500 whitespace-nowrap">{new Date(log.timestamp).toLocaleString('el-GR')}</td>
-                            <td className="p-3 text-slate-300 font-semibold">{log.username}</td>
-                            <td className="p-3">
-                              <span className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${actionColor}`}>
-                                {log.actionType}
-                              </span>
-                            </td>
-                            <td className="p-3 text-slate-400 max-w-[320px] truncate" title={log.query}>{log.query}</td>
-                            <td className="p-3 text-right text-slate-500">{log.affectedRows ?? 0}</td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </div>
         )}
 
@@ -2386,6 +2258,23 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Layer 5: Unified MySQL Console Manager */}
+      {activeLayer === 'sql_console' && (
+        <div className="px-6 pb-8 pt-2">
+          <MySqlConsoleManager
+            appName="e-aitisi"
+            dbName="e_aitisi"
+            defaultTableName="e_aitisi.teachers"
+            adminUser={currentAdminUser || 'plinetamag'}
+            sampleQueries={[
+              'SELECT * FROM e_aitisi.teachers LIMIT 10;',
+              'SELECT ΑρΜητρ, ΑΦΜ, Επώνυμο, Όνομα, Ειδικότητα FROM e_aitisi.teachers;',
+              'SHOW TABLES IN e_aitisi;',
+              'SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 10;'
+            ]}
+          />
         </div>
       )}
     </div>
