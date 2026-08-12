@@ -631,7 +631,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
           ['Ονοματεπώνυμο:', `${selectedRecord.Επώνυμο || ''} ${selectedRecord.Όνομα || ''} (${selectedRecord.Πατρώνυμο || ''})`],
           ['Ειδικότητα:', `${selectedRecord.Ειδικότητα || ''} (${selectedRecord.ΚωδΕιδικότ || ''})`],
           ['Οργανική Θέση:', selectedRecord.Οργανική || '-'],
-          ['Περιοχή Μετάθεσης:', selectedRecord.ΠεριοχήΜετάθεσης || 'Α΄ ΜΑΓΝΗΣΙΑΣ (Π.Ε.)'],
+          ['Περιοχή Μετάθεσης:', selectedRecord.ΠερΜετάθ || '-'],
           ['Στοιχεία Επικοινωνίας:', `${selectedRecord.Κινητό || '-'}  •  ${selectedRecord.Email || '-'}`],
           ['Διεύθυνση Κατοικίας:', `${selectedRecord.Οδός || '-'} ${selectedRecord.Αριθμός || ''}, ${selectedRecord.Πόλη || '-'} (Τ.Κ. ${selectedRecord.ΤαχΚωδ || '-'})`]
         ],
@@ -2583,7 +2583,7 @@ export const PersonnelPortalSection: React.FC<PersonnelPortalSectionProps> = ({
                             </tr>
                             <tr className="bg-white">
                               <td className="border border-slate-300 px-3 py-1.5 font-medium text-slate-700">Περιοχή Μετάθεσης:</td>
-                              <td className="border border-slate-300 px-3 py-1.5 font-semibold text-slate-900">{selectedRecord.ΠεριοχήΜετάθεσης || 'Α΄ ΜΑΓΝΗΣΙΑΣ (Π.Ε.)'}</td>
+                              <td className="border border-slate-300 px-3 py-1.5 font-semibold text-slate-900">{selectedRecord.ΠερΜετάθ || '-'}</td>
                             </tr>
                             <tr className="bg-slate-50">
                               <td className="border border-slate-300 px-3 py-1.5 font-medium text-slate-700">Στοιχεία Επικοινωνίας:</td>

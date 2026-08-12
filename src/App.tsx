@@ -44,10 +44,14 @@ async function robustApiFetch(path: string, options?: RequestInit) {
   let lastErrorText = '';
   let lastStatus = 500;
 
-  for (const url of candidateUrls) {
+  for (let i = 0; i < candidateUrls.length; i++) {
+    const url = candidateUrls[i];
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      // Increase timeout for DB connection testing (10s) vs standard API requests (6s)
+      const isConnectReq = path.includes('connect');
+      const timeoutMs = isConnectReq ? 10000 : 6000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       const fetchOpts: RequestInit = {
         ...options,
@@ -59,23 +63,52 @@ async function robustApiFetch(path: string, options?: RequestInit) {
 
       lastStatus = res.status;
       const text = await res.text();
-      try {
-        const json = JSON.parse(text);
-        if (json && (json.success !== undefined || json.mode !== undefined || json.isConnected !== undefined || res.ok)) {
-          return { ok: res.ok || json.success === true, data: json, status: res.status, rawText: text, urlUsed: url };
+      const isHtml = text.trim().startsWith('<') || text.includes('<!doctype') || text.includes('<!DOCTYPE') || text.includes('<html');
+
+      if (!isHtml) {
+        try {
+          const json = JSON.parse(text);
+          if (json && (json.success !== undefined || json.mode !== undefined || json.isConnected !== undefined || json.error !== undefined)) {
+            return {
+              ok: json.success === true || (res.ok && !json.error),
+              data: json,
+              status: res.status,
+              rawText: text,
+              urlUsed: url
+            };
+          }
+        } catch (_) {
+          // JSON parse failed
         }
-      } catch (e) {
+      }
+
+      // If text is HTML, it's an SPA fallback or server startup page, NOT a valid API response
+      if (isHtml) {
+        lastErrorText = `Σφάλμα διακομιστή (HTTP ${res.status}): Η διαδρομή επέστρεψε σελίδα HTML αντί για δεδομένα JSON.`;
+      } else {
         lastErrorText = text;
       }
-      if (res.ok) {
-        return { ok: true, data: { raw: text }, status: res.status, rawText: text, urlUsed: url };
+
+      // If direct /api/ returned a 400 or 500 JSON response, don't fall back to PHP
+      if (i === 0 && !isHtml && res.status >= 400 && res.status < 600) {
+        try {
+          const json = JSON.parse(text);
+          return { ok: false, data: json, status: res.status, rawText: text, urlUsed: url };
+        } catch (_) {}
       }
+
     } catch (e: any) {
-      lastErrorText = e.message || String(e);
       if (e.name === 'AbortError') {
-        lastErrorText = 'Χρονικό όριο αίτησης (Timeout 5s) - Ο διακομιστής δεν ανταποκρίθηκε.';
+        lastErrorText = 'Χρονικό όριο αίτησης (Timeout) - Ο διακομιστής δεν ανταποκρίθηκε εγκαίρως (π.χ. ngrok tunnel εκτός σύνδεσης).';
+      } else {
+        lastErrorText = e.message || String(e);
       }
     }
+  }
+
+  // Ensure lastErrorText never exposes raw HTML code
+  if (lastErrorText.trim().startsWith('<') || lastErrorText.includes('<!doctype') || lastErrorText.includes('<html')) {
+    lastErrorText = 'Αδυναμία επικοινωνίας με την υπηρεσία API (Επιστράφηκε σελίδα HTML).';
   }
 
   return {

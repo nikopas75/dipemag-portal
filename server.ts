@@ -33,6 +33,29 @@ const TARGET_DB_HARDCODED_DEFAULTS = HARDCODED_DB_DEFAULTS;
 // Active MySQL connection pool (when in external mode)
 let externalPool: mysql.Pool | null = null;
 
+// Global process exception handlers to prevent background async pool errors from crashing Node
+process.on('uncaughtException', (err: any) => {
+  console.warn('Process caught uncaught exception:', err?.message || err);
+});
+
+process.on('unhandledRejection', (reason: any) => {
+  console.warn('Process caught unhandled rejection:', reason?.message || reason);
+});
+
+// Helper to create and attach error listeners to mysql2 pool to prevent uncaught pool error events
+function createSafePool(config: mysql.PoolOptions): mysql.Pool {
+  const pool = mysql.createPool(config);
+  (pool as any).on?.('error', (err: any) => {
+    console.warn('MySQL pool background connection error:', err?.message || err);
+    if (externalPool === pool) {
+      try { pool.end().catch(() => {}); } catch (e) {}
+      externalPool = null;
+      dbConfig.isConnected = false;
+    }
+  });
+  return pool;
+}
+
 // Helper to setup database e_aitisi and ensure the teachers table exists
 async function ensureCloneDatabase(pool: mysql.Pool, force = false) {
   try {
@@ -286,6 +309,8 @@ async function startServer() {
         } catch (err: any) {
           dbConfig.isConnected = false;
           dbConfig.activeConnectionMessage = `Αποτυχία επικοινωνίας με τον MySQL Server (${dbConfig.host}:${dbConfig.port}): ${err.message}`;
+          try { await externalPool.end(); } catch (e) {}
+          externalPool = null;
         }
       }
     }
@@ -324,12 +349,14 @@ async function startServer() {
         }
       }
 
+      let tempPool: mysql.Pool | null = null;
       try {
         if (externalPool) {
-          await externalPool.end();
+          try { await externalPool.end(); } catch (e) {}
+          externalPool = null;
         }
 
-        const pool = mysql.createPool({
+        tempPool = createSafePool({
           host: cleanHost,
           port: cleanPort,
           user: user || 'root',
@@ -337,14 +364,14 @@ async function startServer() {
           database: database || 'test',
           waitForConnections: true,
           connectionLimit: 10,
-          connectTimeout: 4000 // Fast 4-second timeout for connection test
+          connectTimeout: 7000 // 7-second timeout for ngrok network connection test
         });
 
         // Test connection
-        const [rows] = await pool.query('SELECT 1 as test');
-        await ensureCloneDatabase(pool);
+        const [rows] = await tempPool.query('SELECT 1 as test');
+        await ensureCloneDatabase(tempPool);
         const finalDb = database || 'e_aitisi';
-        externalPool = pool;
+        externalPool = tempPool;
         dbConfig = {
           mode: 'external',
           host: cleanHost,
@@ -358,7 +385,27 @@ async function startServer() {
         addAuditLog(user || 'admin', `CONNECT TO EXTERNAL MYSQL (${cleanHost}:${cleanPort}/${finalDb})`, 'CONNECT', 1, Math.round(performance.now() - startMs));
         return res.json({ success: true, config: dbConfig });
       } catch (err: any) {
+        if (tempPool) {
+          try { await tempPool.end(); } catch (e) {}
+          tempPool = null;
+        }
+        if (externalPool) {
+          try { await externalPool.end(); } catch (e) {}
+          externalPool = null;
+        }
         let errorReason = err.message || 'Unknown network error';
+        if (err.code === 'ECONNREFUSED') {
+          errorReason = `Δεν ήταν δυνατή η σύνδεση στο ngrok tunnel (${cleanHost}:${cleanPort}). Επιβεβαιώστε ότι η εντολή 'ngrok tcp 3306' εκτελείται στον υπολογιστή σας και ότι η θύρα (${cleanPort}) είναι η σωστή.`;
+        } else if (err.code === 'ETIMEDOUT' || err.code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
+          errorReason = `Χρονικό όριο σύνδεσης στο ngrok tunnel (${cleanHost}:${cleanPort}). Το ngrok δεν ανταποκρίθηκε. Ελέγξτε αν ο ngrok client τρέχει και αν ο local MySQL Server είναι ενεργός.`;
+        } else if (err.code === 'ER_ACCESS_DENIED_ERROR') {
+          errorReason = `Απορρίφθηκε η πρόσβαση στη MySQL (Access Denied για τον χρήστη '${user}'). Ελέγξτε το Όνομα Χρήστη και τον Κωδικό (Password).`;
+        } else if (err.code === 'ER_BAD_DB_ERROR') {
+          errorReason = `Η βάση δεδομένων '${database}' δεν βρέθηκε στον διακομιστή MySQL.`;
+        } else if (err.code === 'ENOTFOUND') {
+          errorReason = `Η διεύθυνση '${cleanHost}' δεν βρέθηκε (DNS Host Not Found). Ελέγξτε τη διεύθυνση ngrok host.`;
+        }
+
         if (cleanHost.startsWith('10.') || cleanHost.startsWith('192.168.') || cleanHost.startsWith('172.')) {
           const finalDb = database || 'e_aitisi';
           dbConfig = {
@@ -2506,9 +2553,14 @@ async function autoConnectToNgrok() {
   const defaultUser = process.env.DB_USER || TARGET_DB_HARDCODED_DEFAULTS.user;
   const defaultPass = process.env.DB_PASSWORD || TARGET_DB_HARDCODED_DEFAULTS.password;
   const defaultDatabase = process.env.DB_AITISI_NAME || TARGET_DB_HARDCODED_DEFAULTS.database;
+  let tempPool: mysql.Pool | null = null;
   try {
     console.log(`Auto-connecting to user's MySQL server: ${defaultHost}:${defaultPort}...`);
-    const pool = mysql.createPool({
+    if (externalPool) {
+      try { await externalPool.end(); } catch (e) {}
+      externalPool = null;
+    }
+    tempPool = createSafePool({
       host: defaultHost,
       port: defaultPort,
       user: defaultUser,
@@ -2518,9 +2570,9 @@ async function autoConnectToNgrok() {
       connectionLimit: 10,
       connectTimeout: 5000
     });
-    await pool.query('SELECT 1 as test');
-    await ensureCloneDatabase(pool);
-    externalPool = pool;
+    await tempPool.query('SELECT 1 as test');
+    await ensureCloneDatabase(tempPool);
+    externalPool = tempPool;
     dbConfig = {
       mode: 'external',
       host: defaultHost,
@@ -2535,6 +2587,10 @@ async function autoConnectToNgrok() {
     console.log("Successfully auto-connected to external MySQL!");
   } catch (err: any) {
     console.warn("Auto-connect to MySQL server failed or not reachable yet:", err.message);
+    if (tempPool) {
+      try { await tempPool.end(); } catch (e) {}
+      tempPool = null;
+    }
     if (externalPool) {
       try { await externalPool.end(); } catch (e) {}
       externalPool = null;
@@ -2562,7 +2618,7 @@ async function autoConnectToNgrok() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
+    app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
