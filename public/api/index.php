@@ -61,21 +61,23 @@ if (session_status() === PHP_SESSION_NONE) {
     @session_start();
 }
 
-$requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$requestUriPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
 
-// Export route pattern after /api
-$route = $requestUri;
+// Route parsing
+$route = $requestUriPath;
 if (isset($_GET['route']) && !empty($_GET['route'])) {
-    $rParam = $_GET['route'];
+    $rParam = parse_url($_GET['route'], PHP_URL_PATH);
     $route = (strpos($rParam, '/api') === 0) ? $rParam : '/api/' . ltrim($rParam, '/');
 } else if (strpos($route, '/api') !== false) {
     $route = substr($route, strpos($route, '/api'));
 }
-$routeClean = trim($route, '/');
+
+$routeClean = preg_replace('#^/?(api/)?#i', '', $route);
+$routeClean = rtrim($routeClean, '/');
 
 // Fallback if accessed as /api/index.php without route param
-if ($routeClean === 'api/index.php' || $routeClean === 'index.php') {
+if ($routeClean === 'index.php' || $routeClean === '') {
     $route = '/api/status';
     $routeClean = 'status';
 }
@@ -165,27 +167,44 @@ try {
 if ($route === '/api/status' || $routeClean === 'status' || $routeClean === '') {
     try {
         if (!$pdo) {
-            $pdo = getDbConnection();
-            ensureEaitisiSchema($pdo);
+            try {
+                $pdo = getDbConnection();
+                if ($pdo) ensureEaitisiSchema($pdo);
+            } catch (\Throwable $e) {}
         }
-        $stmt = $pdo->query("SELECT COUNT(*) FROM teachers");
-        $totalTeachers = $stmt ? (int)$stmt->fetchColumn() : 0;
+        $totalTeachers = 0;
+        if ($pdo) {
+            try {
+                $stmt = $pdo->query("SELECT COUNT(*) FROM teachers");
+                $totalTeachers = $stmt ? (int)$stmt->fetchColumn() : 0;
+            } catch (\Throwable $tErr) {}
+        }
         sendJson([
             'mode' => 'external',
             'host' => DB_HOST,
             'port' => (int)DB_PORT,
             'database' => DB_NAME,
             'user' => DB_USER,
-            'isConnected' => true,
-            'activeConnectionMessage' => 'Σύνδεση PHP PDO με τη Βάση Δεδομένων sch.gr (' . DB_NAME . ')',
+            'isConnected' => ($pdo !== null),
+            'activeConnectionMessage' => ($pdo !== null)
+                ? 'Σύνδεση PHP PDO με τη Βάση Δεδομένων sch.gr (' . DB_NAME . ')'
+                : 'Αποτυχία σύνδεσης στη Βάση Δεδομένων: ' . ($dbInitError ?? 'Unknown PDO error'),
             'stats' => [
                 'totalUsers' => 1,
                 'totalRecords' => $totalTeachers,
                 'totalAuditLogs' => 1
             ]
         ]);
-    } catch (\Exception $e) {
-        sendJson(['mode' => 'external', 'isConnected' => false, 'error' => 'Αποτυχία αρχικοποίησης PDO: ' . $e->getMessage()], 200);
+    } catch (\Throwable $e) {
+        sendJson([
+            'mode' => 'external',
+            'host' => DB_HOST,
+            'port' => (int)DB_PORT,
+            'database' => DB_NAME,
+            'user' => DB_USER,
+            'isConnected' => false,
+            'error' => 'Αποτυχία αρχικοποίησης PDO: ' . $e->getMessage()
+        ], 200);
     }
 }
 
@@ -232,6 +251,10 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
         } catch (\Throwable $e) {
             sendJson(['success' => false, 'error' => 'Αποτυχία σύνδεσης PDO στη βάση δεδομένων: ' . $e->getMessage()], 200);
         }
+    }
+
+    if (!$pdo) {
+        sendJson(['success' => false, 'error' => 'Δεν υπάρχει ενεργή σύνδεση με τη βάση δεδομένων. Ελέγξτε τα διαπιστευτήρια στο config.php.'], 200);
     }
 
     try {

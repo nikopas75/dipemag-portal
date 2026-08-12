@@ -6,15 +6,15 @@
  * Τροποποιήστε τα παρακάτω στοιχεία σύμφωνα με τα διαπιστευτήρια που σας δόθηκαν από το sch.gr.
  */
 
-define('DB_HOST', '10.2.49.42'); // Συνήθως localhost στο sch.gr
-define('DB_PORT', '3306');
-define('DB_NAME', 'e_aitisi');   // Όνομα Προεπιλεγμένης Βάσης Δεδομένων
-define('DB_AITISI_NAME', 'e_aitisi');
-define('DB_PROGRAMMATISMOS_NAME', 'programmatismos');
-define('DB_AXIOLOGISI_NAME', 'axiologisi');
-define('DB_USER', 'plinetamag'); // Όνομα χρήστη Βάσης (MySQL Username)
-define('DB_PASS', 'Fr9KC7$c4e'); // Κωδικός πρόσβασης Βάσης (MySQL Password)
-define('DB_CHARSET', 'utf8mb4');
+if (!defined('DB_HOST')) define('DB_HOST', getenv('DB_HOST') ?: '10.2.49.42');
+if (!defined('DB_PORT')) define('DB_PORT', getenv('DB_PORT') ?: '3306');
+if (!defined('DB_NAME')) define('DB_NAME', getenv('DB_AITISI_NAME') ?: (getenv('DB_NAME') ?: 'e_aitisi'));
+if (!defined('DB_AITISI_NAME')) define('DB_AITISI_NAME', 'e_aitisi');
+if (!defined('DB_PROGRAMMATISMOS_NAME')) define('DB_PROGRAMMATISMOS_NAME', 'programmatismos');
+if (!defined('DB_AXIOLOGISI_NAME')) define('DB_AXIOLOGISI_NAME', 'axiologisi');
+if (!defined('DB_USER')) define('DB_USER', getenv('DB_USER') ?: 'plinetamag');
+if (!defined('DB_PASS')) define('DB_PASS', (getenv('DB_PASSWORD') !== false && getenv('DB_PASSWORD') !== '') ? getenv('DB_PASSWORD') : ((getenv('DB_PASS') !== false && getenv('DB_PASS') !== '') ? getenv('DB_PASS') : 'Fr9KC7$c4e'));
+if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
 
 function getDbConnection($customHost = null, $customPort = null, $customUser = null, $customPass = null, $customDb = null) {
     static $pdo = null;

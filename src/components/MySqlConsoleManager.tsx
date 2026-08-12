@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Terminal, Play, History, Download, CheckCircle2, AlertCircle, RefreshCw, Database, Shield, Server, Activity, FileSpreadsheet } from 'lucide-react';
 import { SqlAuditLog, SqlQueryResult } from '../modules/e-aitisi/types';
 import { generateSqlAuditPdf } from '../modules/e-aitisi/utils/pdfGenerator';
+import { safeApiFetch } from '../utils/api';
 
 interface MySqlConsoleManagerProps {
   appName: 'e-aitisi' | 'programmatismos' | 'axiologisi';
@@ -40,33 +41,34 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
     issues: string[];
   } | null>(null);
 
-  const [serverStatus, setServerStatus] = useState<{ host: string; port: number; isConnected: boolean; database?: string }>({
-    host: '10.2.49.42',
-    port: 3306,
-    isConnected: true
+  const [serverStatus, setServerStatus] = useState<{ host: string; port: number | string; isConnected: boolean; database?: string }>({
+    host: '',
+    port: '',
+    isConnected: false
   });
 
-  // Fetch status & audit logs
+  // Fetch status & audit logs dynamically without hardcoded fallback strings
   const fetchStatusAndLogs = async () => {
     setLoadingLogs(true);
     try {
       const [logsRes, statusRes] = await Promise.all([
-        fetch('/api/logs').catch(() => null),
-        fetch('/api/status').catch(() => null)
+        safeApiFetch('/api/logs'),
+        safeApiFetch('/api/status')
       ]);
 
-      if (logsRes && logsRes.ok) {
-        const data = await logsRes.json();
-        setLogs(Array.isArray(data) ? data : []);
+      if (logsRes.ok && Array.isArray(logsRes.data)) {
+        setLogs(logsRes.data);
+      } else if (logsRes.data && Array.isArray(logsRes.data.logs)) {
+        setLogs(logsRes.data.logs);
       }
 
-      if (statusRes && statusRes.ok) {
-        const statusData = await statusRes.json();
+      if (statusRes.ok && statusRes.data) {
+        const statusData = statusRes.data;
         setServerStatus({
-          host: statusData.host || '10.2.49.42',
-          port: statusData.port || 3306,
-          isConnected: statusData.isConnected ?? true,
-          database: statusData.database
+          host: statusData.host || '',
+          port: statusData.port || '',
+          isConnected: statusData.isConnected ?? false,
+          database: statusData.database || dbName
         });
       }
     } catch (err) {
@@ -80,7 +82,7 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
     fetchStatusAndLogs();
   }, []);
 
-  // Execute SQL Query
+  // Execute SQL Query safely with candidate fallback routes
   const handleExecuteQuery = async (queryToRun?: string) => {
     const q = queryToRun || customQuery;
     if (!q.trim()) return;
@@ -89,14 +91,14 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
     setResult(null);
 
     try {
-      const res = await fetch('/api/sql/execute', {
+      const res = await safeApiFetch('/api/sql/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: q, username: adminUser })
       });
 
-      const data = await res.json();
-      if (res.ok) {
+      const data = res.data;
+      if (res.ok && data && (data.columns !== undefined || data.rows !== undefined || data.success === true)) {
         setResult(data);
       } else {
         setResult({
@@ -104,7 +106,7 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
           rows: [],
           affectedRows: 0,
           executionTimeMs: 0,
-          error: data.error || 'Σφάλμα κατά την εκτέλεση του ερωτήματος SQL'
+          error: data?.error || 'Σφάλμα κατά την εκτέλεση του ερωτήματος SQL'
         });
       }
       // Refresh audit logs & status
@@ -129,21 +131,20 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
     const startMs = performance.now();
 
     try {
-      // Execute SHOW TABLES to check integrity
-      const res = await fetch('/api/sql/execute', {
+      const res = await safeApiFetch('/api/sql/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: `SHOW TABLES;`, username: adminUser })
       });
 
-      const data = await res.json();
+      const data = res.data;
       const latency = Math.round(performance.now() - startMs) || 2;
 
-      if (res.ok && Array.isArray(data.rows)) {
+      if (res.ok && data && Array.isArray(data.rows)) {
         setDiagnosticResult({
           status: 'OK',
           tablesCount: data.rows.length,
-          dbEngine: 'MySQL 8.0 / InnoDB',
+          dbEngine: 'MySQL / InnoDB',
           charset: 'utf8mb4_unicode_ci',
           connectionTimeMs: latency,
           issues: []
@@ -152,10 +153,10 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
         setDiagnosticResult({
           status: 'WARNING',
           tablesCount: 0,
-          dbEngine: 'MySQL 8.0 / Standby',
+          dbEngine: 'MySQL / Standby',
           charset: 'utf8mb4_unicode_ci',
           connectionTimeMs: latency,
-          issues: [data.error || 'Περιορισμένη πρόσβαση στη δομή πινάκων']
+          issues: [data?.error || 'Περιορισμένη πρόσβαση στη δομή πινάκων']
         });
       }
     } catch (err: any) {
@@ -185,13 +186,17 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
               <h2 className="text-base font-bold text-white uppercase tracking-wider">
                 Κονσόλα Διαχείρισης & Συντήρησης MySQL
               </h2>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950 border border-emerald-800 text-emerald-400 flex items-center space-x-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>ONLINE</span>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center space-x-1 ${
+                serverStatus.isConnected 
+                  ? 'bg-emerald-950 border border-emerald-800 text-emerald-400' 
+                  : 'bg-amber-950 border border-amber-800 text-amber-400'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${serverStatus.isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+                <span>{serverStatus.isConnected ? 'ONLINE' : 'CONNECTING'}</span>
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Εφαρμογή: <span className="text-purple-300 font-semibold">{appName}</span> • Βάση: <span className="text-amber-300 font-mono font-semibold">{dbName}</span>
+              Εφαρμογή: <span className="text-purple-300 font-semibold">{appName}</span> • Βάση: <span className="text-amber-300 font-mono font-semibold">{serverStatus.database || dbName}</span>
             </p>
           </div>
         </div>
@@ -200,7 +205,7 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
         <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
           <div className="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center space-x-2 text-slate-300">
             <Server className="w-3.5 h-3.5 text-blue-400" />
-            <span>Server: {serverStatus.host}:{serverStatus.port}</span>
+            <span>Server: {serverStatus.host ? `${serverStatus.host}${serverStatus.port ? `:${serverStatus.port}` : ''}` : '---'}</span>
           </div>
           <div className="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center space-x-2 text-slate-300">
             <Shield className="w-3.5 h-3.5 text-purple-400" />
