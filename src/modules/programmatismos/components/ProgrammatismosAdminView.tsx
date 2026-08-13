@@ -648,7 +648,7 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                         className="px-3.5 py-2 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border border-emerald-800/80 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-sm"
                       >
                         <Download className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Μαθητικό Δυναμικό &amp; Νήπια</span>
+                        <span>Μαθητικό Δυναμικό &amp; Τμήματα</span>
                       </button>
                     </div>
                   </div>
@@ -680,7 +680,7 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                         className="px-3.5 py-2 bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-800/80 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-sm"
                       >
                         <Download className="w-3.5 h-3.5 text-purple-400" />
-                        <span>Στελέχωση ΕΕΠ / ΕΒΠ / Εκπ/κών</span>
+                        <span>Στελέχωση Εκπ/κών &amp; ΕΕΠ / ΕΒΠ</span>
                       </button>
                     </div>
                   </div>
@@ -705,7 +705,7 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                         className="px-3.5 py-2 bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-800/80 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-sm"
                       >
                         <Download className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Μαθητικό Δυναμικό &amp; Στελέχωση</span>
+                        <span>Μαθητικό Δυναμικό, Τμήματα &amp; ΕΕΠ/ΕΒΠ</span>
                       </button>
                     </div>
                   </div>

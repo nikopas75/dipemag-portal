@@ -240,6 +240,7 @@ if ($route === '/api/connect' || $routeClean === 'connect') {
 
     try {
         $testPdo = getDbConnection($reqHost, $reqPort, $reqUser, $reqPass, $reqDb);
+        addPhpAuditLog($testPdo, $reqUser, "CONNECT TO MYSQL SERVER ($reqHost:$reqPort/$reqDb)", 'CONNECT', 1, 5);
         sendJson([
             'success' => true,
             'message' => 'Επιτυχής σύνδεση στη βάση δεδομένων ' . $reqHost,
@@ -402,25 +403,40 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
             }
         }
 
+        $startTime = microtime(true);
         if ($stmt === false) {
             sendJson(['success' => false, 'error' => 'Αποτυχία εκτέλεσης SQL query.'], 200);
         }
+        
+        $executionMs = max(1, round((microtime(true) - $startTime) * 1000));
+        $upperSql = strtoupper(trim($sqlToRun));
+        $actType = 'SELECT';
+        if (strpos($upperSql, 'INSERT') === 0) $actType = 'INSERT';
+        else if (strpos($upperSql, 'UPDATE') === 0) $actType = 'UPDATE';
+        else if (strpos($upperSql, 'DELETE') === 0 || strpos($upperSql, 'TRUNCATE') === 0 || strpos($upperSql, 'DROP') === 0) $actType = 'DELETE';
+        else if (strpos($upperSql, 'USE') === 0 || strpos($upperSql, 'CONNECT') === 0 || strpos($upperSql, 'ALTER') === 0 || strpos($upperSql, 'CREATE') === 0) $actType = 'CONNECT';
+
+        $consoleUser = $input['username'] ?? 'Interactive SQL Console';
+
         if ($stmt->columnCount() > 0) {
             $rows = $stmt->fetchAll();
             $fields = !empty($rows) ? array_keys($rows[0]) : [];
+            addPhpAuditLog($pdo, $consoleUser, $sqlToRun, $actType, count($rows), $executionMs);
             sendJson([
                 'success' => true,
                 'rows' => $rows,
                 'columns' => $fields,
                 'rowCount' => count($rows),
                 'affectedRows' => count($rows),
-                'executionTimeMs' => 5
+                'executionTimeMs' => $executionMs
             ]);
         } else {
+            $affRows = $stmt->rowCount();
+            addPhpAuditLog($pdo, $consoleUser, $sqlToRun, $actType, $affRows, $executionMs);
             sendJson([
                 'success' => true,
                 'rows' => [],
-                'affectedRows' => $stmt->rowCount(),
+                'affectedRows' => $affRows,
                 'insertId' => $pdo->lastInsertId(),
                 'columns' => []
             ]);
@@ -557,9 +573,98 @@ function saveSettingValue($pdo, $keyName, $val) {
     }
 }
 
+function addPhpAuditLog($pdo, $username, $query, $actionType = 'SELECT', $affectedRows = 0, $executionTimeMs = 0) {
+    if (!$pdo) return;
+    $timeIso = date('c');
+    $logItem = [
+        'id' => (int)(microtime(true) * 1000),
+        'timestamp' => $timeIso,
+        'username' => !empty($username) ? $username : 'System',
+        'query' => (string)$query,
+        'actionType' => strtoupper((string)$actionType),
+        'affectedRows' => (int)$affectedRows,
+        'executionTimeMs' => (int)$executionTimeMs
+    ];
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
+            id BIGINT PRIMARY KEY,
+            timestamp VARCHAR(50),
+            username VARCHAR(100),
+            query TEXT,
+            action_type VARCHAR(20),
+            affected_rows INT,
+            execution_time_ms INT
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
+
+        $stmt = $pdo->prepare("INSERT INTO audit_logs (id, timestamp, username, query, action_type, affected_rows, execution_time_ms) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $logItem['id'],
+            $logItem['timestamp'],
+            $logItem['username'],
+            $logItem['query'],
+            $logItem['actionType'],
+            $logItem['affectedRows'],
+            $logItem['executionTimeMs']
+        ]);
+    } catch (\Throwable $e) {}
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS settings (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
+        $existingLogs = getSettingValue($pdo, ['audit_logs']);
+        if (!is_array($existingLogs)) $existingLogs = [];
+        array_unshift($existingLogs, $logItem);
+        if (count($existingLogs) > 100) {
+            $existingLogs = array_slice($existingLogs, 0, 100);
+        }
+        saveSettingValue($pdo, 'audit_logs', $existingLogs);
+    } catch (\Throwable $e) {}
+}
+
 // GET /api/logs
 if ($route === '/api/logs' || $routeClean === 'logs') {
-    sendJson([]);
+    $logs = [];
+    if (!$pdo) {
+        try { $pdo = getDbConnection(); } catch (\Throwable $e) {}
+    }
+
+    if ($pdo) {
+        try {
+            $stmt = $pdo->query("SELECT id, timestamp, username, query, action_type AS actionType, affected_rows AS affectedRows, execution_time_ms AS executionTimeMs FROM audit_logs ORDER BY id DESC LIMIT 100");
+            if ($stmt) {
+                $dbLogs = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                if (!empty($dbLogs)) {
+                    foreach ($dbLogs as &$l) {
+                        $l['id'] = (int)$l['id'];
+                        $l['affectedRows'] = (int)$l['affectedRows'];
+                        $l['executionTimeMs'] = (int)$l['executionTimeMs'];
+                    }
+                    $logs = $dbLogs;
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        if (empty($logs)) {
+            $settingsLogs = getSettingValue($pdo, ['audit_logs']);
+            if (is_array($settingsLogs) && !empty($settingsLogs)) {
+                $logs = $settingsLogs;
+            }
+        }
+    }
+
+    if (empty($logs)) {
+        $logs = [[
+            'id' => 1,
+            'timestamp' => date('c'),
+            'username' => 'System Boot',
+            'query' => 'Έναρξη υπηρεσίας ΔΠΕ Μαγνησίας (PHP PDO Engine). Ενεργοποίηση Καταγραφής Audit Trail.',
+            'actionType' => 'CONNECT',
+            'affectedRows' => 1,
+            'executionTimeMs' => 2
+        ]];
+    }
+
+    sendJson($logs);
 }
 
 // GET & POST /api/plinetamag/admins
