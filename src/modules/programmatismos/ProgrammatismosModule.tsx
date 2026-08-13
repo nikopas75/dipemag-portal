@@ -226,7 +226,7 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
       const res = await safeApiFetch('/api/sql/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query, database: 'programmatismos', appName: 'programmatismos' })
       });
       const data = res.data;
       if (data && data.rows && Array.isArray(data.rows)) {
@@ -878,7 +878,7 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
       const res = await safeApiFetch('/api/sql/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: sqlQuery })
+        body: JSON.stringify({ query: sqlQuery, database: 'programmatismos', appName: 'programmatismos' })
       });
       const data = res.data;
       if (!data) {

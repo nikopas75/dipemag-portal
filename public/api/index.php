@@ -165,6 +165,19 @@ try {
 
 // 1. GET /api/status
 if ($route === '/api/status' || $routeClean === 'status' || $routeClean === '') {
+    $reqDb = $_GET['database'] ?? $_GET['db'] ?? $_GET['dbName'] ?? null;
+    $reqApp = $_GET['appName'] ?? null;
+    
+    if (!empty($reqDb)) {
+        $requestedDb = $reqDb;
+    } else if ($reqApp === 'programmatismos') {
+        $requestedDb = 'programmatismos';
+    } else if ($reqApp === 'axiologisi') {
+        $requestedDb = 'axiologisi';
+    } else {
+        $requestedDb = DB_NAME;
+    }
+
     try {
         if (!$pdo) {
             try {
@@ -172,26 +185,35 @@ if ($route === '/api/status' || $routeClean === 'status' || $routeClean === '') 
                 if ($pdo) ensureEaitisiSchema($pdo);
             } catch (\Throwable $e) {}
         }
-        $totalTeachers = 0;
+        $totalRecords = 0;
         if ($pdo) {
             try {
-                $stmt = $pdo->query("SELECT COUNT(*) FROM teachers");
-                $totalTeachers = $stmt ? (int)$stmt->fetchColumn() : 0;
+                $pdo->exec("USE `$requestedDb`");
+                if ($requestedDb === 'programmatismos') {
+                    $stmt = $pdo->query("SELECT (SELECT COUNT(*) FROM dim_users) + (SELECT COUNT(*) FROM nip_users) + (SELECT COUNT(*) FROM eid_users)");
+                    if ($stmt) $totalRecords = (int)$stmt->fetchColumn();
+                } else if ($requestedDb === 'axiologisi') {
+                    $stmt = $pdo->query("SELECT COUNT(*) FROM evaluations");
+                    if ($stmt) $totalRecords = (int)$stmt->fetchColumn();
+                } else {
+                    $stmt = $pdo->query("SELECT COUNT(*) FROM teachers");
+                    if ($stmt) $totalRecords = (int)$stmt->fetchColumn();
+                }
             } catch (\Throwable $tErr) {}
         }
         sendJson([
             'mode' => 'external',
             'host' => DB_HOST,
             'port' => (int)DB_PORT,
-            'database' => DB_NAME,
+            'database' => $requestedDb,
             'user' => DB_USER,
             'isConnected' => ($pdo !== null),
             'activeConnectionMessage' => ($pdo !== null)
-                ? 'Σύνδεση PHP PDO με τη Βάση Δεδομένων sch.gr (' . DB_NAME . ')'
+                ? 'Σύνδεση PHP PDO με τη Βάση Δεδομένων sch.gr (' . $requestedDb . ')'
                 : 'Αποτυχία σύνδεσης στη Βάση Δεδομένων: ' . ($dbInitError ?? 'Unknown PDO error'),
             'stats' => [
                 'totalUsers' => 1,
-                'totalRecords' => $totalTeachers,
+                'totalRecords' => $totalRecords,
                 'totalAuditLogs' => 1
             ]
         ]);
@@ -200,7 +222,7 @@ if ($route === '/api/status' || $routeClean === 'status' || $routeClean === '') 
             'mode' => 'external',
             'host' => DB_HOST,
             'port' => (int)DB_PORT,
-            'database' => DB_NAME,
+            'database' => $requestedDb ?? DB_NAME,
             'user' => DB_USER,
             'isConnected' => false,
             'error' => 'Αποτυχία αρχικοποίησης PDO: ' . $e->getMessage()
@@ -258,7 +280,19 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
     }
 
     try {
-        $targetDb = 'e_aitisi';
+        $reqDb = $input['database'] ?? $input['db'] ?? $input['dbName'] ?? $_GET['database'] ?? $_GET['db'] ?? null;
+        $reqApp = $input['appName'] ?? $_GET['appName'] ?? null;
+
+        if (!empty($reqDb)) {
+            $targetDb = $reqDb;
+        } else if ($reqApp === 'programmatismos') {
+            $targetDb = 'programmatismos';
+        } else if ($reqApp === 'axiologisi') {
+            $targetDb = 'axiologisi';
+        } else {
+            $targetDb = 'e_aitisi';
+        }
+
         $sqlToRun = $sql;
         $knownPortalDbs = ['e_aitisi', 'programmatismos', 'axiologisi'];
 
@@ -271,8 +305,8 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
                     $targetDb = $m[1];
                 }
             }
-        } else {
-            // Auto-detect target database if query mentions specific app tables
+        } else if (empty($reqDb) && empty($reqApp)) {
+            // Auto-detect target database ONLY if no explicit database/appName context was passed in request
             $progTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'dim_data_math', 'nip_data_math', 'eid_dim_data_math', 'eid_nip_data_math', 'dim_data_ekp', 'eid_dim_data_ekp'];
             foreach ($progTables as $t) {
                 if (preg_match('/\b' . $t . '\b/i', $sqlToRun)) {

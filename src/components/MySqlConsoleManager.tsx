@@ -47,13 +47,14 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
     isConnected: false
   });
 
-  // Fetch status & audit logs dynamically without hardcoded fallback strings
+  // Fetch status & audit logs dynamically with explicit database and appName context
   const fetchStatusAndLogs = async () => {
     setLoadingLogs(true);
     try {
+      const queryParams = `?database=${encodeURIComponent(dbName)}&appName=${encodeURIComponent(appName)}`;
       const [logsRes, statusRes] = await Promise.all([
-        safeApiFetch('/api/logs'),
-        safeApiFetch('/api/status')
+        safeApiFetch(`/api/logs${queryParams}`),
+        safeApiFetch(`/api/status${queryParams}`)
       ]);
 
       if (logsRes.ok && Array.isArray(logsRes.data)) {
@@ -80,9 +81,9 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
 
   useEffect(() => {
     fetchStatusAndLogs();
-  }, []);
+  }, [appName, dbName]);
 
-  // Execute SQL Query safely with candidate fallback routes
+  // Execute SQL Query safely with explicit database and appName context
   const handleExecuteQuery = async (queryToRun?: string) => {
     const q = queryToRun || customQuery;
     if (!q.trim()) return;
@@ -94,7 +95,12 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
       const res = await safeApiFetch('/api/sql/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, username: adminUser })
+        body: JSON.stringify({
+          query: q,
+          username: adminUser,
+          database: dbName,
+          appName: appName
+        })
       });
 
       const data = res.data;
@@ -134,7 +140,12 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
       const res = await safeApiFetch('/api/sql/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: `SHOW TABLES;`, username: adminUser })
+        body: JSON.stringify({
+          query: `SHOW TABLES;`,
+          username: adminUser,
+          database: dbName,
+          appName: appName
+        })
       });
 
       const data = res.data;
