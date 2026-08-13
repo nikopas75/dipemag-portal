@@ -194,8 +194,8 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-base font-bold text-white uppercase tracking-wider">
-                Κονσόλα Διαχείρισης & Συντήρησης MySQL
+              <h2 className="text-base font-bold text-white tracking-wide">
+                Κονσόλα Διαχείρισης &amp; Συντήρησης MySQL
               </h2>
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center space-x-1 ${
                 serverStatus.isConnected 
@@ -511,7 +511,9 @@ export const MySqlConsoleManager: React.FC<MySqlConsoleManagerProps> = ({
               </div>
               <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
                 <span className="text-slate-500 block text-[10px]">Host / Port</span>
-                <span className="text-blue-400 font-semibold">127.0.0.1:3306</span>
+                <span className="text-blue-400 font-semibold">
+                  {serverStatus.host ? `${serverStatus.host}${serverStatus.port ? `:${serverStatus.port}` : ''}` : '---'}
+                </span>
               </div>
               <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
                 <span className="text-slate-500 block text-[10px]">Primary Table</span>

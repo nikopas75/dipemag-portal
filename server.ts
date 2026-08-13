@@ -246,7 +246,7 @@ let sqlAuditLogs: SqlAuditLog[] = [
     id: 1,
     timestamp: new Date().toISOString(),
     username: 'System Boot',
-    query: 'Έναρξη υπηρεσίας e-Αίτηση (PLINET Magnesia). Σύνδεση με τη βάση δεδομένων MySQL.',
+    query: 'Έναρξη υπηρεσίας \"Πύλη ΔΙΠΕ Μαγνησίας\". Σύνδεση με τη βάση δεδομένων MySQL.',
     actionType: 'CONNECT',
     affectedRows: 1,
     executionTimeMs: 5
