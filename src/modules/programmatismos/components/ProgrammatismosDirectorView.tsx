@@ -70,7 +70,7 @@ export const ProgrammatismosDirectorView: React.FC<ProgrammatismosDirectorViewPr
           <div id="protocol-number-wrapper" className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100/90 border border-slate-300 rounded-xl px-3 py-1.5 transition">
             <FileText className="w-4 h-4 text-slate-500 flex-shrink-0" />
             <label htmlFor="protocol-number-input" className="text-xs font-semibold text-slate-700 whitespace-nowrap">
-              Αρ. Πρωτοκόλλου:
+              Αρ. Πρωτ.:
             </label>
             <input
               id="protocol-number-input"
