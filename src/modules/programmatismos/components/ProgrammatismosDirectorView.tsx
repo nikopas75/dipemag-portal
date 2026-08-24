@@ -51,25 +51,25 @@ export const ProgrammatismosDirectorView: React.FC<ProgrammatismosDirectorViewPr
   return (
     <div className="space-y-6">
       {/* School Profile Bar */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        <div className="space-y-1">
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="space-y-1 min-w-0">
           <div className="flex items-center space-x-2">
-            <span className="px-2.5 py-0.5 rounded-md font-mono text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+            <span className="px-2.5 py-0.5 rounded-md font-mono text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200 flex-shrink-0">
               Κωδικός: {activeSchool.SchCode}
             </span>
-            <h2 className="text-lg font-bold text-slate-900">{activeSchool.SchName}</h2>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">{activeSchool.SchName}</h2>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 truncate">
             Διευθυντής/Προϊστάμενος: <strong className="text-slate-800">{activeSchool.PrName}</strong> | Οργανικότητα: <strong className="text-slate-800">{activeSchool.Organ}θέσιο</strong> | Έδρα: <strong className="text-slate-800">{activeSchool.Location}</strong>
           </p>
         </div>
 
         {/* Action buttons & Protocol Number */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* Protocol Number input box */}
-          <div id="protocol-number-wrapper" className="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100/90 border border-slate-300 rounded-xl px-3 py-1.5 transition">
-            <FileText className="w-4 h-4 text-slate-500 flex-shrink-0" />
-            <label htmlFor="protocol-number-input" className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+          <div id="protocol-number-wrapper" className="flex items-center space-x-1.5 bg-slate-50 hover:bg-slate-100/90 border border-slate-300 rounded-xl px-2.5 py-1 transition">
+            <FileText className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+            <label htmlFor="protocol-number-input" className="text-[11px] sm:text-xs font-semibold text-slate-700 whitespace-nowrap">
               Αρ. Πρωτ.:
             </label>
             <input
@@ -77,8 +77,8 @@ export const ProgrammatismosDirectorView: React.FC<ProgrammatismosDirectorViewPr
               type="text"
               value={protocolNumber}
               onChange={(e) => setProtocolNumber(e.target.value)}
-              placeholder="π.χ. 124 / 24-08-2026"
-              className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 w-36 sm:w-44 transition shadow-xs"
+              placeholder="π.χ. 124/2026"
+              className="px-2 py-0.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 w-24 sm:w-28 md:w-32 transition shadow-xs"
               title="Εισάγετε τον Αριθμό Πρωτοκόλλου για εμφάνιση στο εξαγόμενο PDF"
             />
           </div>
@@ -86,7 +86,7 @@ export const ProgrammatismosDirectorView: React.FC<ProgrammatismosDirectorViewPr
           <button
             id="btn-export-programmatismos-pdf"
             onClick={onExportPDF}
-            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center space-x-2 shadow-sm transition cursor-pointer"
+            className="px-3.5 py-2 sm:px-4 sm:py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 sm:space-x-2 shadow-sm transition cursor-pointer whitespace-nowrap"
           >
             <Printer className="w-4 h-4 text-amber-400" />
             <span>Εξαγωγή σε PDF</span>
@@ -96,7 +96,7 @@ export const ProgrammatismosDirectorView: React.FC<ProgrammatismosDirectorViewPr
             id="btn-save-programmatismos-data"
             onClick={onSaveData}
             disabled={isSaving}
-            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-md transition disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 sm:px-5 sm:py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 sm:space-x-2 shadow-md transition disabled:opacity-50 cursor-pointer whitespace-nowrap"
           >
             {isSaving ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
