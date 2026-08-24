@@ -113,11 +113,19 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
 
   const safeApiFetch = async (urlPath: string, options?: RequestInit) => {
     const cleanRoute = urlPath.replace(/^\/api\//, '').replace(/^api\//, '');
+    const [routePath, queryPart] = cleanRoute.split('?');
+    const phpRoute = queryPart 
+      ? `api/index.php?route=${routePath}&${queryPart}` 
+      : `api/index.php?route=${routePath}`;
+    const dotPhpRoute = queryPart 
+      ? `./api/index.php?route=${routePath}&${queryPart}` 
+      : `./api/index.php?route=${routePath}`;
+
     const candidateUrls = [
       urlPath,
       urlPath.startsWith('/') ? urlPath.substring(1) : urlPath,
-      `api/index.php?route=${cleanRoute}`,
-      `./api/index.php?route=${cleanRoute}`
+      phpRoute,
+      dotPhpRoute
     ];
 
     let lastError = '';

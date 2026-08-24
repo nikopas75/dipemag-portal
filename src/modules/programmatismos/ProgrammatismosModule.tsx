@@ -18,6 +18,8 @@ import { defaultDimMathData, defaultNipMathData, defaultEidNipMathData, defaultE
 import { ProgrammatismosLanding } from './components/ProgrammatismosLanding';
 import { ProgrammatismosDirectorView } from './components/ProgrammatismosDirectorView';
 import { ProgrammatismosAdminView } from './components/ProgrammatismosAdminView';
+import { safeApiFetch, downloadApiCsv } from '../../utils/api';
+export { safeApiFetch, downloadApiCsv };
 
 interface ProgrammatismosModuleProps {
   dbConfig?: DbConfig;
@@ -25,39 +27,6 @@ interface ProgrammatismosModuleProps {
   appRole?: 'landing' | 'director' | 'admin';
   setAppRole?: (role: 'landing' | 'director' | 'admin') => void;
 }
-
-export const safeApiFetch = async (urlPath: string, options?: RequestInit) => {
-  const cleanRoute = urlPath.replace(/^\/api\//, '').replace(/^api\//, '');
-  const candidateUrls = [
-    urlPath,
-    urlPath.startsWith('/') ? urlPath.substring(1) : urlPath,
-    `api/index.php?route=${cleanRoute}`,
-    `./api/index.php?route=${cleanRoute}`
-  ];
-
-  let lastError = '';
-  for (const candidate of candidateUrls) {
-    try {
-      const res = await fetch(candidate, options);
-      const text = await res.text();
-      try {
-        const json = JSON.parse(text);
-        if (res.ok || json.success !== undefined || json.records !== undefined || json.school !== undefined || Array.isArray(json) || json.columns !== undefined || json.rows !== undefined) {
-          return { ok: res.ok, data: json, status: res.status, rawText: text };
-        }
-      } catch (jsonErr) {
-        lastError = text || `HTTP ${res.status} ${res.statusText}`;
-      }
-    } catch (netErr: any) {
-      lastError = netErr.message || String(netErr);
-    }
-  }
-
-  const cleanMsg = lastError.startsWith('<')
-    ? `Μη έγκυρη απόκριση (HTML/PHP): ${lastError.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 140)}...`
-    : (lastError || 'Σφάλμα επικοινωνίας με το διακομιστή');
-  return { ok: false, data: { success: false, error: cleanMsg }, rawText: lastError };
-};
 
 export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
   appRole: propsAppRole,
@@ -859,35 +828,7 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
   // Helper for direct CSV download without blank browser tab artifacts
   const handleExportTableCsv = async (table: string) => {
     try {
-      const res = await safeApiFetch(`/api/programmatismos/admin/export/csv?table=${table}`);
-      let csvContent = res.rawText || '';
-      if (!csvContent && typeof res.data === 'string') {
-        csvContent = res.data;
-      }
-      if (!csvContent && res.data && typeof res.data === 'object' && res.data.error) {
-        alert(`Σφάλμα εξαγωγής: ${res.data.error}`);
-        return;
-      }
-
-      if (!csvContent) {
-        alert('Δεν παραλήφθηκαν δεδομένα για την εξαγωγή CSV.');
-        return;
-      }
-
-      // Ensure UTF-8 BOM (\uFEFF) for proper Greek character display in Excel
-      if (!csvContent.startsWith('\uFEFF')) {
-        csvContent = '\uFEFF' + csvContent;
-      }
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${table}_export.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      await downloadApiCsv(`/api/programmatismos/admin/export/csv?table=${encodeURIComponent(table)}`, `${table}_export.csv`);
     } catch (err) {
       console.error('Error exporting CSV:', err);
       alert('Σφάλμα κατά την εξαγωγή του αρχείου CSV.');

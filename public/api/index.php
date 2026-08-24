@@ -67,7 +67,13 @@ $method = $_SERVER['REQUEST_METHOD'];
 // Route parsing
 $route = $requestUriPath;
 if (isset($_GET['route']) && !empty($_GET['route'])) {
-    $rParam = parse_url($_GET['route'], PHP_URL_PATH);
+    $rawRoute = $_GET['route'];
+    $parsedUrl = parse_url($rawRoute);
+    $rParam = $parsedUrl['path'] ?? $rawRoute;
+    if (!empty($parsedUrl['query'])) {
+        parse_str($parsedUrl['query'], $routeQueryParams);
+        $_GET = array_merge($routeQueryParams, $_GET);
+    }
     $route = (strpos($rParam, '/api') === 0) ? $rParam : '/api/' . ltrim($rParam, '/');
 } else if (strpos($route, '/api') !== false) {
     $route = substr($route, strpos($route, '/api'));
@@ -1305,19 +1311,28 @@ if ($route === '/api/programmatismos/admin/school/delete' && $method === 'POST')
 // GET /api/programmatismos/admin/export/csv
 if ($route === '/api/programmatismos/admin/export/csv' && $method === 'GET') {
     selectProgrammatismosDb($pdo);
-    $tableName = $_GET['table'] ?? 'dim_data_math';
+    $tableName = $_GET['table'] ?? $_GET['tableName'] ?? '';
     $allowedTables = [
         'dim_users', 'dim_data_math', 'dim_data_ekp',
         'nip_users', 'nip_data_math',
         'eid_dim_users', 'eid_dim_data_math', 'eid_dim_data_ekp',
         'eid_nip_users', 'eid_nip_data_math'
     ];
-    if (!in_array($tableName, $allowedTables)) {
-        sendJson(['error' => 'Invalid table'], 400);
+    if (empty($tableName) || !in_array($tableName, $allowedTables)) {
+        sendJson(['error' => 'Invalid table: ' . htmlspecialchars($tableName)], 400);
     }
     try {
-        $stmt = $pdo->query("SELECT * FROM `$tableName`");
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = null;
+        try {
+            $stmt = $pdo->query("SELECT * FROM `$tableName`");
+        } catch (\Throwable $t1) {
+            try {
+                $stmt = $pdo->query("SELECT * FROM `programmatismos`.`$tableName`");
+            } catch (\Throwable $t2) {
+                throw $t1;
+            }
+        }
+        $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
         
         $headers = [];
         if ($stmt && $stmt->columnCount() > 0) {

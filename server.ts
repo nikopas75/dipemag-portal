@@ -2024,7 +2024,7 @@ async function startServer() {
   app.get('/api/programmatismos/admin/export/csv', async (req, res) => {
     const { table } = req.query;
     try {
-      const tableName = (table || 'dim_data_math').toString();
+      const tableName = (table || '').toString().trim();
       
       const allowedTables = [
         'dim_users', 'dim_data_math', 'dim_data_ekp',
@@ -2033,7 +2033,7 @@ async function startServer() {
         'eid_nip_users', 'eid_nip_data_math'
       ];
 
-      if (!allowedTables.includes(tableName)) {
+      if (!tableName || !allowedTables.includes(tableName)) {
         return res.status(400).send('Invalid table specified for export');
       }
 
@@ -2045,7 +2045,15 @@ async function startServer() {
           const [dbRows, dbFields]: any = await externalPool.query(`SELECT * FROM programmatismos.${tableName};`);
           rows = dbRows || [];
           fields = dbFields || [];
-        } catch (dbErr) {}
+        } catch (dbErr) {
+          try {
+            const [dbRows2, dbFields2]: any = await externalPool.query(`SELECT * FROM ${tableName};`);
+            rows = dbRows2 || [];
+            fields = dbFields2 || [];
+          } catch (e2) {
+            console.error(`Export query error for table ${tableName}:`, e2);
+          }
+        }
       }
 
       let headers: string[] = [];
