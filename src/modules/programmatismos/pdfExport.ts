@@ -104,7 +104,8 @@ export async function exportProgrammatismosPdf(
   category: SchoolCategory,
   mathData: any,
   ekpData: any,
-  activeTab: 'math' | 'ekp' = 'math'
+  activeTab: 'math' | 'ekp' = 'math',
+  protocolNumber: string = ''
 ) {
   if (!school || !mathData) return;
 
@@ -125,20 +126,31 @@ export async function exportProgrammatismosPdf(
     // Common Header
     doc.setFont('Roboto', 'bold');
     doc.setFontSize(13);
-    doc.text(toGreekUppercase('ΔΙΕΥΘΥΝΣΗ ΠΡΩΤΟΒΑΘΜΙΑΣ ΕΚΠΑΙΔΕΥΣΗΣ ΜΑΓΝΗΣΙΑΣ'), centerX, 14, { align: 'center' });
+    doc.text(toGreekUppercase('ΔΙΕΥΘΥΝΣΗ ΠΡΩΤΟΒΑΘΜΙΑΣ ΕΚΠΑΙΔΕΥΣΗΣ ΜΑΓΝΗΣΙΑΣ'), centerX, 13, { align: 'center' });
 
     doc.setFontSize(11);
     doc.setFont('Roboto', 'bold');
     const docTitle = effectiveTab === 'ekp'
       ? 'ΕΤΗΣΙΑ ΕΚΘΕΣΗ ΠΡΟΓΡΑΜΜΑΤΙΣΜΟΥ - ΩΡΑΡΙΟ & ΚΑΤΑΝΟΜΗ ΕΚΠΑΙΔΕΥΤΙΚΩΝ'
       : 'ΕΤΗΣΙΑ ΕΚΘΕΣΗ ΠΡΟΓΡΑΜΜΑΤΙΣΜΟΥ - ΜΑΘΗΤΙΚΟ ΔΥΝΑΜΙΚΟ & ΤΜΗΜΑΤΑ';
-    doc.text(toGreekUppercase(docTitle), centerX, 21, { align: 'center' });
+    doc.text(toGreekUppercase(docTitle), centerX, 19, { align: 'center' });
+
+    // Protocol Number Line (Right Aligned before School Info Block)
+    const cleanProtocol = protocolNumber ? protocolNumber.trim() : '';
+    if (cleanProtocol) {
+      doc.setFont('Roboto', 'bold');
+      doc.setFontSize(9);
+      const protLabel = cleanProtocol.toLowerCase().startsWith('αρ') || cleanProtocol.toLowerCase().startsWith('αριθ')
+        ? cleanProtocol
+        : `Αρ. Πρωτ.: ${cleanProtocol}`;
+      doc.text(protLabel, pageWidth - 14, 25, { align: 'right' });
+    }
 
     // School Information Block
     doc.setFont('Roboto', 'normal');
     doc.setFontSize(9);
 
-    let curY = 30;
+    let curY = cleanProtocol ? 28 : 25;
     doc.setFillColor(220, 220, 220); // Richer Grayscale
     doc.setDrawColor(128, 128, 128); // 50% tone border
     doc.setLineWidth(0.3);

@@ -114,8 +114,32 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
   const [mathData, setMathData] = useState<any>(null);
   const [ekpData, setEkpData] = useState<any>(null);
   const [userTab, setUserTab] = useState<'math' | 'ekp'>('math');
+  const [protocolNumber, setProtocolNumber] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  // Sync protocol number from/to localStorage per school
+  useEffect(() => {
+    if (activeSchool?.SchCode) {
+      try {
+        const savedProt = localStorage.getItem(`programmatismos_prot_${activeSchool.SchCode}`);
+        setProtocolNumber(savedProt || '');
+      } catch {
+        setProtocolNumber('');
+      }
+    } else {
+      setProtocolNumber('');
+    }
+  }, [activeSchool?.SchCode]);
+
+  const handleProtocolNumberChange = (val: string) => {
+    setProtocolNumber(val);
+    if (activeSchool?.SchCode) {
+      try {
+        localStorage.setItem(`programmatismos_prot_${activeSchool.SchCode}`, val);
+      } catch {}
+    }
+  };
 
   // Admin Navigation State (2 Modes: Console vs Schools Viewer)
   const [adminMode, setAdminMode] = useState<'console' | 'schools'>('console');
@@ -829,7 +853,7 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
   // Generate PDF Export
   const handleExportPDF = async () => {
     if (!activeSchool || !mathData) return;
-    await exportProgrammatismosPdf(activeSchool, schoolCategory, mathData, ekpData, userTab);
+    await exportProgrammatismosPdf(activeSchool, schoolCategory, mathData, ekpData, userTab, protocolNumber);
   };
 
   // Helper for direct CSV download without blank browser tab artifacts
@@ -989,6 +1013,8 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
           setEkpData={setEkpData}
           userTab={userTab}
           setUserTab={setUserTab}
+          protocolNumber={protocolNumber}
+          setProtocolNumber={handleProtocolNumberChange}
           isSaving={isSaving}
           saveMessage={saveMessage}
           onSaveData={handleSaveData}
