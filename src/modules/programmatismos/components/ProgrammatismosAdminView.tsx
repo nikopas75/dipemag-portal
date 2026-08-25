@@ -1258,7 +1258,7 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
               sampleQueries={[
                 'SELECT * FROM dim_users LIMIT 10;',
                 'SELECT * FROM nip_users LIMIT 10;',
-                'SELECT * FROM eid_users LIMIT 10;',
+                'SELECT * FROM eid_dim_users LIMIT 10;',
                 'SHOW TABLES;',
                 'SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 10;'
               ]}
