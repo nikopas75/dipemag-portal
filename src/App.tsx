@@ -126,7 +126,7 @@ export default function App() {
   const [programmatismosRole, setProgrammatismosRole] = useState<'landing' | 'director' | 'admin'>('landing');
   const [axiologisiRole, setAxiologisiRole] = useState<'landing' | 'admin'>('landing');
   const [dbConfigs, setDbConfigs] = useState<Record<'aitisi' | 'programmatismos' | 'axiologisi', DbConfig>>(initialDbConfigs);
-  const [dbStatuses, setDbStatuses] = useState<Record<string, { connected: boolean; host: string; database: string; message: string }>>({});
+  const [dbStatuses, setDbStatuses] = useState<Record<string, { connected: boolean; host: string; port?: number | string; database: string; message: string }>>({});
   const [isDbModalOpen, setIsDbModalOpen] = useState<boolean>(false);
   const [currentConnectionConfig, setCurrentConnectionConfig] = useState<MysqlConfig>(() => getResolvedDbConfig());
 
@@ -136,38 +136,42 @@ export default function App() {
       if (res.ok && res.data && res.data.isConnected !== undefined) {
         const data = res.data;
         const host = data.host || currentConnectionConfig.host || '10.2.49.42';
+        const port = Number(data.port) || Number(currentConnectionConfig.port) || 3306;
         const isSchIntranetHost = host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('172.');
-        const isConnected = Boolean(data.isConnected || isSchIntranetHost);
+        const isConnected = Boolean(data.isConnected);
 
         setDbStatuses({
           aitisi: {
             connected: isConnected,
             host: host,
+            port: port,
             database: data.database || 'e_aitisi',
-            message: isConnected ? `Σύνδεση MySQL Ενεργή (${host}:3306 / e_aitisi)` : 'Αποσυνδεδεμένο',
+            message: isConnected ? `Σύνδεση MySQL Ενεργή (${host}:${port} / e_aitisi)` : (isSchIntranetHost ? `Εσωτερικό Δίκτυο sch.gr (${host}:${port})` : 'Αποσυνδεδεμένο'),
           },
           programmatismos: {
             connected: isConnected,
             host: host,
+            port: port,
             database: 'programmatismos',
-            message: isConnected ? 'Βάση Προγραμματισμού συνδεδεμένη στον ίδιο MySQL Server' : 'Αποσυνδεδεμένο',
+            message: isConnected ? `Βάση Προγραμματισμού συνδεδεμένη (${host}:${port})` : 'Αποσυνδεδεμένο',
           },
           axiologisi: {
             connected: isConnected,
             host: host,
+            port: port,
             database: 'axiologisi',
-            message: isConnected ? 'Βάση Αξιολόγησης συνδεδεμένη στον ίδιο MySQL Server' : 'Αποσυνδεδεμένο',
+            message: isConnected ? `Βάση Αξιολόγησης συνδεδεμένη (${host}:${port})` : 'Αποσυνδεδεμένο',
           },
         });
         setCurrentConnectionConfig(prev => ({
           ...prev,
           mode: data.mode || 'external',
           host: host,
-          port: data.port || prev.port,
+          port: port,
           user: data.user || prev.user,
           database: data.database || prev.database,
           isConnected: isConnected,
-          activeConnectionMessage: isConnected ? `Σύνδεση MySQL Ενεργή (${host}:3306)` : data.activeConnectionMessage
+          activeConnectionMessage: isConnected ? `Σύνδεση MySQL Ενεργή (${host}:${port})` : (data.activeConnectionMessage || 'Αποσυνδεδεμένο')
         }));
       }
     } catch (err) {
@@ -180,9 +184,9 @@ export default function App() {
       try {
         const resolved = getResolvedDbConfig();
         const payload = {
-          mode: 'external',
+          mode: resolved.mode || 'external',
           host: resolved.host,
-          port: resolved.port,
+          port: Number(resolved.port) || 3306,
           user: resolved.user,
           password: resolved.password,
           database: resolved.database
@@ -212,8 +216,9 @@ export default function App() {
   const handleSaveGlobalConnection = async (newConfig: Partial<MysqlConfig>): Promise<{ success: boolean; error?: string }> => {
     try {
       const configToSave = {
+        mode: newConfig.mode || 'external',
         host: newConfig.host || '10.2.49.42',
-        port: newConfig.port || 3306,
+        port: Number(newConfig.port) || 3306,
         user: newConfig.user || 'plinetamag',
         password: newConfig.password !== undefined && newConfig.password !== '' ? newConfig.password : 'Fr9KC7$c4e',
         database: newConfig.database || 'e_aitisi'

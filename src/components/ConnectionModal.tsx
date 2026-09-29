@@ -34,11 +34,21 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
 
   React.useEffect(() => {
     if (isOpen) {
-      setHost(config.host || HARDCODED_DB_DEFAULTS.host);
-      setPort(config.port || HARDCODED_DB_DEFAULTS.port);
+      let initialHost = (config.host || HARDCODED_DB_DEFAULTS.host).trim().replace(/^(tcp|http|https|mysql):\/\//i, '').replace(/\/.*$/, '');
+      let initialPort = Number(config.port) || HARDCODED_DB_DEFAULTS.port;
+      if (initialHost.includes(':')) {
+        const [h, p] = initialHost.split(':');
+        initialHost = h.trim();
+        if (p && !isNaN(Number(p)) && (!config.port || Number(config.port) === 3306)) {
+          initialPort = Number(p.trim());
+        }
+      }
+      setHost(initialHost);
+      setPort(initialPort);
       setUser(config.user || HARDCODED_DB_DEFAULTS.user);
       setPassword(config.password !== undefined ? config.password : HARDCODED_DB_DEFAULTS.password);
       setDatabase(config.database || HARDCODED_DB_DEFAULTS.database);
+      setMode(config.mode === 'embedded' ? 'embedded' : 'external');
       setErrorMsg(null);
     }
   }, [isOpen, config]);
@@ -51,19 +61,32 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
     setTimeout(() => setCopiedCmd(null), 2500);
   };
 
+  const handleHostChange = (val: string) => {
+    let clean = val.trim().replace(/^(tcp|http|https|mysql):\/\//i, '').replace(/\/.*$/, '');
+    if (clean.includes(':')) {
+      const [h, p] = clean.split(':');
+      setHost(h.trim());
+      if (p && !isNaN(Number(p))) {
+        setPort(Number(p.trim()));
+      }
+    } else {
+      setHost(val);
+    }
+  };
+
   const handleParseTunnel = () => {
     if (!tunnelInput.trim()) return;
-    let raw = tunnelInput.trim().replace(/^(tcp|http|https|mysql):\/\//i, '');
+    let raw = tunnelInput.trim().replace(/^(tcp|http|https|mysql):\/\//i, '').replace(/\/.*$/, '');
     if (raw.includes('@')) {
       const parts = raw.split('@');
       raw = parts[parts.length - 1];
     }
     if (raw.includes(':')) {
       const [h, p] = raw.split(':');
-      if (h) setHost(h);
-      if (p && !isNaN(Number(p))) setPort(Number(p));
+      if (h) setHost(h.trim());
+      if (p && !isNaN(Number(p))) setPort(Number(p.trim()));
     } else {
-      setHost(raw);
+      setHost(raw.trim());
     }
     setTunnelInput('');
   };
@@ -73,10 +96,21 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
     setLoading(true);
     setErrorMsg(null);
 
+    let cleanHost = host.trim().replace(/^(tcp|http|https|mysql):\/\//i, '').replace(/\/.*$/, '');
+    let cleanPort = Number(port) || 3306;
+    if (cleanHost.includes(':')) {
+      const [h, p] = cleanHost.split(':');
+      cleanHost = h.trim();
+      // If port wasn't manually set or was left as 3306, take the one from the host string
+      if (p && !isNaN(Number(p)) && (!port || Number(port) === 3306)) {
+        cleanPort = Number(p.trim());
+      }
+    }
+
     const result = await onSaveConnection({
       mode,
-      host,
-      port: Number(port),
+      host: cleanHost,
+      port: cleanPort,
       user,
       password,
       database
@@ -215,7 +249,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                   <input
                     type="text"
                     value={host}
-                    onChange={e => setHost(e.target.value)}
+                    onChange={e => handleHostChange(e.target.value)}
                     placeholder={HARDCODED_DB_DEFAULTS.host}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
                     required

@@ -34,6 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
   const aitisiStatus = dbStatuses['aitisi'];
   const isConnected = Boolean(aitisiStatus?.connected);
   const hostName = aitisiStatus?.host || 'localhost';
+  const portStr = aitisiStatus?.port ? `:${aitisiStatus.port}` : '';
 
   const isAitisiLoggedIn = activeApp === 'aitisi' && aitisiRole !== 'landing';
   const isProgrammatismosLoggedIn = activeApp === 'programmatismos' && programmatismosRole !== 'landing';
@@ -211,7 +212,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
                   MySQL Server
                 </span>
-                <span className="text-[10px] text-slate-300 font-mono truncate max-w-[110px]">
+                <span className="text-[10px] text-slate-300 font-mono truncate max-w-[110px]" title={`${hostName}${portStr}`}>
                   {hostName}
                 </span>
               </div>

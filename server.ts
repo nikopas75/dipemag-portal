@@ -1,12 +1,35 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import mysql from 'mysql2/promise';
 import { SqlAuditLog, MysqlConfig, SqlQueryResult } from './src/modules/e-aitisi/types';
 import { HARDCODED_DB_DEFAULTS } from './src/config/dbDefaults';
+
+const CONFIG_FILE_PATH = path.join(process.cwd(), '.active_db_config.json');
+
+function loadPersistedDbConfig(): Partial<MysqlConfig> | null {
+  try {
+    if (fs.existsSync(CONFIG_FILE_PATH)) {
+      const data = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.warn('Could not read persisted DB config:', err);
+  }
+  return null;
+}
+
+function persistDbConfig(config: Partial<MysqlConfig>) {
+  try {
+    fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(config, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not persist DB config:', err);
+  }
+}
 
 let aiClient: GoogleGenAI | null = null;
 function getAiClient(): GoogleGenAI | null {
@@ -74,19 +97,19 @@ async function ensureCloneDatabase(pool: mysql.Pool, force = false) {
       const createTableQuery = `
         CREATE TABLE IF NOT EXISTS e_aitisi.teachers (
           Α_Α INT AUTO_INCREMENT PRIMARY KEY,
-          ΑρΜητρ VARCHAR(12) DEFAULT '',
-          ΑΦΜ VARCHAR(12) DEFAULT '',
-          Επώνυμο VARCHAR(100) DEFAULT '',
-          Όνομα VARCHAR(100) DEFAULT '',
-          Πατρώνυμο VARCHAR(100) DEFAULT '',
-          ΚωδΕιδικότ VARCHAR(20) DEFAULT '',
-          Ειδικότητα VARCHAR(100) DEFAULT '',
-          Έτη INT DEFAULT 0,
-          Μήνες INT DEFAULT 0,
-          Ημέρες INT DEFAULT 0,
-          ΚωδΟργαν VARCHAR(20) DEFAULT '',
-          Οργανική VARCHAR(100) DEFAULT '',
-          ΠερΜετάθ VARCHAR(50) DEFAULT '',
+          ΑρΜητρ VARCHAR(12) NOT NULL DEFAULT '',
+          ΑΦΜ VARCHAR(12) NOT NULL DEFAULT '',
+          Επώνυμο VARCHAR(100) NOT NULL DEFAULT '',
+          Όνομα VARCHAR(100) NOT NULL DEFAULT '',
+          Πατρώνυμο VARCHAR(100) NOT NULL DEFAULT '',
+          ΚωδΕιδικότ VARCHAR(20) NOT NULL DEFAULT '',
+          Ειδικότητα VARCHAR(100) NOT NULL DEFAULT '',
+          Έτη INT NOT NULL DEFAULT 0,
+          Μήνες INT NOT NULL DEFAULT 0,
+          Ημέρες INT NOT NULL DEFAULT 0,
+          ΚωδΟργαν VARCHAR(20) NOT NULL DEFAULT '',
+          Οργανική VARCHAR(100) NOT NULL DEFAULT '',
+          ΠερΜετάθ VARCHAR(50) NOT NULL DEFAULT '',
           Πόλη VARCHAR(100) DEFAULT NULL,
           ΤαχΚωδ VARCHAR(10) DEFAULT NULL,
           Οδός VARCHAR(100) DEFAULT NULL,
@@ -183,16 +206,59 @@ async function getTargetTable(pool: mysql.Pool): Promise<string> {
   return tableName;
 }
 
+const persistedDbConfig = loadPersistedDbConfig();
+
 let dbConfig: MysqlConfig = {
-  mode: 'external',
-  host: process.env.DB_HOST || TARGET_DB_HARDCODED_DEFAULTS.host,
-  port: Number(process.env.DB_PORT) || TARGET_DB_HARDCODED_DEFAULTS.port,
-  user: process.env.DB_USER || TARGET_DB_HARDCODED_DEFAULTS.user,
-  password: process.env.DB_PASSWORD || TARGET_DB_HARDCODED_DEFAULTS.password,
-  database: process.env.DB_AITISI_NAME || TARGET_DB_HARDCODED_DEFAULTS.database,
+  mode: persistedDbConfig?.mode || 'external',
+  host: persistedDbConfig?.host || process.env.DB_HOST || TARGET_DB_HARDCODED_DEFAULTS.host,
+  port: Number(persistedDbConfig?.port) || Number(process.env.DB_PORT) || TARGET_DB_HARDCODED_DEFAULTS.port,
+  user: persistedDbConfig?.user || process.env.DB_USER || TARGET_DB_HARDCODED_DEFAULTS.user,
+  password: persistedDbConfig?.password !== undefined ? persistedDbConfig.password : (process.env.DB_PASSWORD || TARGET_DB_HARDCODED_DEFAULTS.password),
+  database: persistedDbConfig?.database || process.env.DB_AITISI_NAME || TARGET_DB_HARDCODED_DEFAULTS.database,
   isConnected: false,
   activeConnectionMessage: 'Έλεγχος σύνδεσης με τη βάση δεδομένων MySQL...'
 };
+
+async function getOrInitExternalPool(): Promise<mysql.Pool | null> {
+  if (externalPool) {
+    try {
+      await externalPool.query('SELECT 1 as test');
+      return externalPool;
+    } catch (e) {
+      console.warn('Active MySQL pool connection dropped or timed out, recreating pool...');
+      try { await externalPool.end(); } catch (_) {}
+      externalPool = null;
+      dbConfig.isConnected = false;
+    }
+  }
+
+  if (dbConfig.mode === 'external' && dbConfig.host && !dbConfig.host.startsWith('10.') && !dbConfig.host.startsWith('192.168.') && !dbConfig.host.startsWith('172.')) {
+    try {
+      const cleanHost = dbConfig.host.trim().replace(/^(tcp|http|https|mysql):\/\//i, '').replace(/\/.*$/, '').split(':')[0];
+      const cleanPort = Number(dbConfig.port) || 3306;
+      const pool = createSafePool({
+        host: cleanHost,
+        port: cleanPort,
+        user: dbConfig.user || 'root',
+        password: dbConfig.password || '',
+        database: dbConfig.database || 'e_aitisi',
+        waitForConnections: true,
+        connectionLimit: 10,
+        connectTimeout: 5000
+      });
+      await pool.query('SELECT 1 as test');
+      await ensureCloneDatabase(pool);
+      externalPool = pool;
+      dbConfig.isConnected = true;
+      dbConfig.activeConnectionMessage = `Συνδεδεμένο στον MySQL Server (${dbConfig.user}@${cleanHost}:${cleanPort}/${dbConfig.database})`;
+      return externalPool;
+    } catch (e: any) {
+      dbConfig.isConnected = false;
+      dbConfig.activeConnectionMessage = `Αποτυχία σύνδεσης: ${e?.message || e}`;
+    }
+  }
+  return null;
+}
 
 // Embedded Settings Fallback
 let embeddedSettings: { [key: string]: string } = {
@@ -273,13 +339,25 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+  // Auto-connect middleware for external MySQL requests
+  app.use(async (req, res, next) => {
+    if (dbConfig.mode === 'external' && !externalPool && req.path.startsWith('/api/') && req.path !== '/api/connect' && !req.path.startsWith('/api/status')) {
+      await getOrInitExternalPool();
+    }
+    next();
+  });
+
   // API Route: Check Database & Server Status
   app.get('/api/status', async (req, res) => {
     if (dbConfig.mode === 'external') {
       if (!externalPool) {
+        await getOrInitExternalPool();
+      }
+
+      if (!externalPool) {
         dbConfig.isConnected = false;
         if (!dbConfig.activeConnectionMessage || dbConfig.activeConnectionMessage.includes('Έλεγχος')) {
-          dbConfig.activeConnectionMessage = `Εκτός σύνδεσης: Το ngrok tunnel (${dbConfig.host}:${dbConfig.port}) δεν είναι προσβάσιμο.`;
+          dbConfig.activeConnectionMessage = `Εκτός σύνδεσης: Ο διακομιστής MySQL (${dbConfig.host}:${dbConfig.port}) δεν είναι προσβάσιμος.`;
         }
       } else {
         try {
@@ -313,20 +391,34 @@ async function startServer() {
   app.post('/api/connect', async (req, res) => {
     const { mode, host, port, user, password, database } = req.body;
     const startMs = performance.now();
+    const targetMode = mode === 'embedded' ? 'embedded' : 'external';
 
-    if (mode === 'external') {
-      // Strip prefixes like tcp:// or http:// if user pasted full tunnel URL into host
-      let cleanHost = (host || 'localhost').replace(/^(tcp|http|https):\/\//i, '');
-      // If host contains :port at the end and port wasn't explicitly overridden, split it
-      let cleanPort = Number(port) || 3306;
-      if (cleanHost.includes(':')) {
-        const parts = cleanHost.split(':');
-        cleanHost = parts[0];
-        if (!isNaN(Number(parts[1]))) {
-          cleanPort = Number(parts[1]);
-        }
+    // Parse and sanitize host
+    let rawHost = (host || 'localhost').toString().trim().replace(/^(tcp|http|https|mysql):\/\//i, '').replace(/\/.*$/, '');
+    let extractedPort: number | null = null;
+    if (rawHost.includes(':')) {
+      const [h, p] = rawHost.split(':');
+      rawHost = h.trim();
+      if (p && !isNaN(Number(p.trim()))) {
+        extractedPort = Number(p.trim());
       }
+    }
+    const cleanHost = rawHost;
 
+    // Port precedence:
+    // 1. Explicit port in request body (if provided and valid)
+    // 2. Extracted port from host string
+    // 3. Current active port or fallback 3306
+    let cleanPort = 3306;
+    if (port !== undefined && port !== null && String(port).trim() !== '' && !isNaN(Number(port))) {
+      cleanPort = Number(port);
+    } else if (extractedPort !== null) {
+      cleanPort = extractedPort;
+    } else {
+      cleanPort = Number(dbConfig.port) || 3306;
+    }
+
+    if (targetMode === 'external') {
       let tempPool: mysql.Pool | null = null;
       try {
         if (externalPool) {
@@ -346,7 +438,7 @@ async function startServer() {
         });
 
         // Test connection
-        const [rows] = await tempPool.query('SELECT 1 as test');
+        await tempPool.query('SELECT 1 as test');
         await ensureCloneDatabase(tempPool);
         const finalDb = database || 'e_aitisi';
         externalPool = tempPool;
@@ -354,12 +446,20 @@ async function startServer() {
           mode: 'external',
           host: cleanHost,
           port: cleanPort,
-          user,
-          password,
+          user: user || 'root',
+          password: password || '',
           database: finalDb,
           isConnected: true,
-          activeConnectionMessage: `Connected to External MySQL (${user}@${cleanHost}:${cleanPort}/${finalDb}) [Database e_aitisi active]`
+          activeConnectionMessage: `Συνδεδεμένο στον MySQL Server (${user || 'root'}@${cleanHost}:${cleanPort}/${finalDb}) [Βάση e_aitisi ενεργή]`
         };
+        persistDbConfig({
+          mode: 'external',
+          host: cleanHost,
+          port: cleanPort,
+          user: user || 'root',
+          password: password || '',
+          database: finalDb
+        });
         addAuditLog(user || 'admin', `CONNECT TO EXTERNAL MYSQL (${cleanHost}:${cleanPort}/${finalDb})`, 'CONNECT', 1, Math.round(performance.now() - startMs));
         return res.json({ success: true, config: dbConfig });
       } catch (err: any) {
@@ -390,18 +490,42 @@ async function startServer() {
             mode: 'external',
             host: cleanHost,
             port: cleanPort,
-            user,
-            password,
+            user: user || 'plinetamag',
+            password: password || '',
             database: finalDb,
-            isConnected: true,
-            activeConnectionMessage: `Ρυθμίστηκε σύνδεση για το ΠΣΔ sch.gr (${user}@${cleanHost}:${cleanPort}/${finalDb}). Σημείωση: Στο Online Preview τα αιτήματα εξυπηρετούνται προσωρινά από τη διατομεακή μνήμη/βάση Node.js. Στον παραγωγικό διακομιστή του sch.gr, τα αιτήματα εκτελούνται απευθείας από τα αρχεία public/api/index.php & config.php μέσω PHP PDO.`
+            isConnected: false,
+            activeConnectionMessage: `Ρυθμίστηκε σύνδεση για το ΠΣΔ sch.gr (${user || 'plinetamag'}@${cleanHost}:${cleanPort}/${finalDb}). Σημείωση: Στο Online Preview τα αιτήματα εξυπηρετούνται προσωρινά από τη διατομεακή μνήμη/βάση Node.js. Στον παραγωγικό διακομιστή του sch.gr, τα αιτήματα εκτελούνται απευθείας από τα αρχεία public/api/index.php & config.php μέσω PHP PDO.`
           };
+          persistDbConfig({
+            mode: 'external',
+            host: cleanHost,
+            port: cleanPort,
+            user: user || 'plinetamag',
+            password: password || '',
+            database: finalDb
+          });
           addAuditLog(user || 'admin', `CONFIGURED SCH.GR MYSQL (${cleanHost}:${cleanPort}/${finalDb})`, 'CONNECT', 1, Math.round(performance.now() - startMs));
           return res.json({ success: true, config: dbConfig, message: dbConfig.activeConnectionMessage });
         }
-        dbConfig.isConnected = false;
-        dbConfig.activeConnectionMessage = `External connection failed: ${errorReason}`;
-        return res.status(400).json({ success: false, error: errorReason });
+        dbConfig = {
+          mode: 'external',
+          host: cleanHost,
+          port: cleanPort,
+          user: user || 'root',
+          password: password || '',
+          database: database || 'e_aitisi',
+          isConnected: false,
+          activeConnectionMessage: `Αποτυχία σύνδεσης: ${errorReason}`
+        };
+        persistDbConfig({
+          mode: 'external',
+          host: cleanHost,
+          port: cleanPort,
+          user: user || 'root',
+          password: password || '',
+          database: database || 'e_aitisi'
+        });
+        return res.status(400).json({ success: false, error: errorReason, config: dbConfig });
       }
     } else {
       // Switch back to embedded mode
@@ -411,14 +535,15 @@ async function startServer() {
       }
       dbConfig = {
         mode: 'embedded',
-        host: process.env.DB_HOST || TARGET_DB_HARDCODED_DEFAULTS.host,
-        port: Number(process.env.DB_PORT) || TARGET_DB_HARDCODED_DEFAULTS.port,
-        user: process.env.DB_USER || TARGET_DB_HARDCODED_DEFAULTS.user,
-        password: process.env.DB_PASSWORD || TARGET_DB_HARDCODED_DEFAULTS.password,
-        database: process.env.DB_AITISI_NAME || TARGET_DB_HARDCODED_DEFAULTS.database,
+        host: cleanHost,
+        port: cleanPort,
+        user: user || TARGET_DB_HARDCODED_DEFAULTS.user,
+        password: password || TARGET_DB_HARDCODED_DEFAULTS.password,
+        database: database || TARGET_DB_HARDCODED_DEFAULTS.database,
         isConnected: true,
         activeConnectionMessage: 'Ενσωματωμένη Λειτουργία Sandbox (Προρυθμισμένα στοιχεία MySQL)'
       };
+      persistDbConfig(dbConfig);
       addAuditLog('System', 'SWITCH TO EMBEDDED MYSQL SANDBOX ENGINE', 'CONNECT', 0, 2);
       return res.json({ success: true, config: dbConfig });
     }
@@ -440,10 +565,18 @@ async function startServer() {
     }
 
     // If external MySQL mode is active, run on external database!
-    if (dbConfig.mode === 'external' && externalPool) {
+    if (dbConfig.mode === 'external') {
+      const activePool = await getOrInitExternalPool();
+      if (!activePool) {
+        return res.status(503).json({
+          error: `Δεν υπάρχει ενεργή σύνδεση με τον MySQL Server (${dbConfig.host}:${dbConfig.port}). Επιβεβαιώστε ότι η εντολή 'ngrok tcp 3306' εκτελείται στον υπολογιστή σας και ότι η θύρα (${dbConfig.port}) αντιστοιχεί στο τρέχον ngrok tunnel.`,
+          executionTimeMs: Math.round(performance.now() - startMs)
+        });
+      }
+
       let conn;
       try {
-        conn = await externalPool.getConnection();
+        conn = await activePool.getConnection();
         let sqlToRun = cleanQuery;
         let targetDb = 'e_aitisi';
 
@@ -2352,14 +2485,27 @@ Records Sample: ${JSON.stringify(recordSummary)}`
   });
 
 async function autoConnectToNgrok() {
-  const defaultHost = process.env.DB_HOST || TARGET_DB_HARDCODED_DEFAULTS.host;
-  const defaultPort = Number(process.env.DB_PORT) || TARGET_DB_HARDCODED_DEFAULTS.port;
-  const defaultUser = process.env.DB_USER || TARGET_DB_HARDCODED_DEFAULTS.user;
-  const defaultPass = process.env.DB_PASSWORD || TARGET_DB_HARDCODED_DEFAULTS.password;
-  const defaultDatabase = process.env.DB_AITISI_NAME || TARGET_DB_HARDCODED_DEFAULTS.database;
+  if (dbConfig.mode === 'embedded') {
+    console.log("Server operating in embedded sandbox mode.");
+    return;
+  }
+
+  const defaultHost = dbConfig.host || process.env.DB_HOST || TARGET_DB_HARDCODED_DEFAULTS.host;
+  const defaultPort = Number(dbConfig.port) || Number(process.env.DB_PORT) || TARGET_DB_HARDCODED_DEFAULTS.port;
+  const defaultUser = dbConfig.user || process.env.DB_USER || TARGET_DB_HARDCODED_DEFAULTS.user;
+  const defaultPass = dbConfig.password !== undefined ? dbConfig.password : (process.env.DB_PASSWORD || TARGET_DB_HARDCODED_DEFAULTS.password);
+  const defaultDatabase = dbConfig.database || process.env.DB_AITISI_NAME || TARGET_DB_HARDCODED_DEFAULTS.database;
+
+  // If host is an internal intranet IP of sch.gr, skip external connection attempt from cloud container
+  if (defaultHost.startsWith('10.') || defaultHost.startsWith('192.168.') || defaultHost.startsWith('172.')) {
+    console.log(`Configured for sch.gr internal intranet (${defaultHost}:${defaultPort}). Ready for production environment.`);
+    dbConfig.activeConnectionMessage = `Ρυθμίστηκε για το ΠΣΔ sch.gr (${defaultHost}:${defaultPort}).`;
+    return;
+  }
+
   let tempPool: mysql.Pool | null = null;
   try {
-    console.log(`Auto-connecting to user's MySQL server: ${defaultHost}:${defaultPort}...`);
+    console.log(`Auto-connecting to MySQL server: ${defaultHost}:${defaultPort}...`);
     if (externalPool) {
       try { await externalPool.end(); } catch (e) {}
       externalPool = null;
@@ -2385,7 +2531,7 @@ async function autoConnectToNgrok() {
       password: defaultPass,
       database: defaultDatabase,
       isConnected: true,
-      activeConnectionMessage: `Αυτόματη Σύνδεση MySQL (${defaultUser}@${defaultHost}:${defaultPort}/${defaultDatabase})`
+      activeConnectionMessage: `Συνδεδεμένο στον MySQL Server (${defaultUser}@${defaultHost}:${defaultPort}/${defaultDatabase})`
     };
     addAuditLog('System Boot', `AUTO-CONNECTED TO MYSQL SERVER (${defaultHost}:${defaultPort})`, 'CONNECT', 1, 0);
     console.log("Successfully auto-connected to external MySQL!");
@@ -2399,16 +2545,8 @@ async function autoConnectToNgrok() {
       try { await externalPool.end(); } catch (e) {}
       externalPool = null;
     }
-    dbConfig = {
-      mode: 'external',
-      host: defaultHost,
-      port: defaultPort,
-      user: defaultUser,
-      password: defaultPass,
-      database: 'e_aitisi',
-      isConnected: false,
-      activeConnectionMessage: `Αποτυχία σύνδεσης στον MySQL διακομιστή (${defaultHost}:${defaultPort}).`
-    };
+    dbConfig.isConnected = false;
+    dbConfig.activeConnectionMessage = `Αποτυχία σύνδεσης στον MySQL διακομιστή (${defaultHost}:${defaultPort}): ${err.message}`;
   }
 }
 

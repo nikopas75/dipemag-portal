@@ -42,16 +42,28 @@ export function getResolvedDbConfig(dbNameOverride?: string): DbConfig {
     }
   };
 
-  const host = saved?.host || getEnv('VITE_DB_HOST') || HARDCODED_DB_DEFAULTS.host;
-  const port = saved?.port || (getEnv('VITE_DB_PORT') ? Number(getEnv('VITE_DB_PORT')) : HARDCODED_DB_DEFAULTS.port);
+  let host = saved?.host || getEnv('VITE_DB_HOST') || HARDCODED_DB_DEFAULTS.host;
+  let port = saved?.port || (getEnv('VITE_DB_PORT') ? Number(getEnv('VITE_DB_PORT')) : HARDCODED_DB_DEFAULTS.port);
   const user = saved?.user || getEnv('VITE_DB_USER') || HARDCODED_DB_DEFAULTS.user;
   const password = saved?.password !== undefined ? saved.password : (getEnv('VITE_DB_PASSWORD') || HARDCODED_DB_DEFAULTS.password);
   const database = dbNameOverride || saved?.database || getEnv('VITE_DB_NAME') || HARDCODED_DB_DEFAULTS.database;
 
+  // Sanitize host and extract port if embedded
+  if (host && typeof host === 'string') {
+    host = host.trim().replace(/^(tcp|http|https|mysql):\/\//i, '').replace(/\/.*$/, '');
+    if (host.includes(':')) {
+      const [h, p] = host.split(':');
+      host = h.trim();
+      if (p && !isNaN(Number(p)) && (!saved?.port || Number(saved.port) === 3306)) {
+        port = Number(p.trim());
+      }
+    }
+  }
+
   return {
-    mode: 'external',
+    mode: saved?.mode || 'external',
     host,
-    port,
+    port: Number(port) || 3306,
     user,
     password,
     database,
