@@ -791,15 +791,15 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     }).filter(row => row.ΑρΜητρ || row.ΑΦΜ);
 
     try {
-      const res = await fetch('/api/plinetamag/bulk-update', {
+      const res = await safeApiFetch('/api/plinetamag/bulk-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates: normalizedUpdates })
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Σφάλμα κατά τη μαζική ενημέρωση.');
+      const data = res.data;
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Σφάλμα κατά τη μαζική ενημέρωση.');
       }
 
       setBulkUpdateResult({
@@ -824,12 +824,10 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setIsMigratingBackup(true);
     setMigrationError(null);
     try {
-      const res = await fetch('/api/plinetamag/migration/backup', { method: 'POST' });
-      const text = await res.text();
-      let data: any;
-      try { data = JSON.parse(text); } catch { throw new Error(`Σφάλμα διακομιστή [${res.status}]: ${text.substring(0, 150)}`); }
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Αποτυχία δημιουργίας αντιγράφου ασφαλείας.');
+      const res = await safeApiFetch('/api/plinetamag/migration/backup', { method: 'POST' });
+      const data = res.data;
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Αποτυχία δημιουργίας αντιγράφου ασφαλείας.');
       }
       setMigrationBackupCount(data.count);
       setMigrationStep(2); // Advance to Step 2
@@ -845,12 +843,10 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setIsMigratingClear(true);
     setMigrationError(null);
     try {
-      const res = await fetch('/api/plinetamag/migration/clear', { method: 'POST' });
-      const text = await res.text();
-      let data: any;
-      try { data = JSON.parse(text); } catch { throw new Error(`Σφάλμα διακομιστή [${res.status}]: ${text.substring(0, 150)}`); }
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Αποτυχία εκκαθάρισης πίνακα.');
+      const res = await safeApiFetch('/api/plinetamag/migration/clear', { method: 'POST' });
+      const data = res.data;
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Αποτυχία εκκαθάρισης πίνακα.');
       }
       setIsMigrationCleared(true);
       setMigrationStep(3); // Advance to Step 3
@@ -914,18 +910,15 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
 
       for (let i = 0; i < normalizedUpdates.length; i += chunkSize) {
         const chunk = normalizedUpdates.slice(i, i + chunkSize);
-        const res = await fetch('/api/plinetamag/migration/import', {
+        const res = await safeApiFetch('/api/plinetamag/migration/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ updates: chunk })
         });
         
-        const text = await res.text();
-        let data: any;
-        try { data = JSON.parse(text); } catch { throw new Error(`Σφάλμα διακομιστή [${res.status}]: ${text.substring(0, 150)}`); }
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Αποτυχία εισαγωγής WorkerList.');
+        const data = res.data;
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || 'Αποτυχία εισαγωγής WorkerList.');
         }
 
         totalInserted += (data.count || 0);
@@ -947,12 +940,10 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setIsMigratingRestore(true);
     setMigrationError(null);
     try {
-      const res = await fetch('/api/plinetamag/migration/restore', { method: 'POST' });
-      const text = await res.text();
-      let data: any;
-      try { data = JSON.parse(text); } catch { throw new Error(`Σφάλμα διακομιστή [${res.status}]: ${text.substring(0, 150)}`); }
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Αποτυχία επαναφοράς προσωπικών στοιχείων.');
+      const res = await safeApiFetch('/api/plinetamag/migration/restore', { method: 'POST' });
+      const data = res.data;
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Αποτυχία επαναφοράς προσωπικών στοιχείων.');
       }
       setMigrationRestoreCount(data.count);
       
@@ -976,14 +967,14 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch('/api/plinetamag/bulk-clear', {
+      const res = await safeApiFetch('/api/plinetamag/bulk-clear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetField: clearTarget })
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Σφάλμα κατά την εκκαθάριση.');
+      const data = res.data;
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Σφάλμα κατά την εκκαθάριση.');
       }
       setSuccessMsg(data.message || 'Η εκκαθάριση ολοκληρώθηκε επιτυχώς!');
       setIsClearModalOpen(false);
@@ -999,18 +990,18 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
 
   const saveAdminsToDb = async (updatedList: { username: string; password: string }[]) => {
     try {
-      const res = await fetch('/api/plinetamag/admins', {
+      const res = await safeApiFetch('/api/plinetamag/admins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ admins: updatedList })
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      const data = res.data;
+      if (res.ok && data && (data.success || Array.isArray(data.admins))) {
         setAdminList(updatedList);
         localStorage.setItem('eaitisi_admins_v2', JSON.stringify(updatedList));
         return true;
       } else {
-        throw new Error(data.error || 'Σφάλμα κατά την αποθήκευση των διαχειριστών.');
+        throw new Error(data?.error || 'Σφάλμα κατά την αποθήκευση των διαχειριστών.');
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Αποτυχία αποθήκευσης των διαχειριστών στη Βάση Δεδομένων.');

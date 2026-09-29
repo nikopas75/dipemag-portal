@@ -335,6 +335,7 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
         if (!empty($targetDb)) {
             try {
                 $pdo->exec("USE `$targetDb`");
+                $pdo->exec("CREATE TABLE IF NOT EXISTS `$targetDb`.`settings` (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
             } catch (\Throwable $e) {
                 // ignore if initial db does not exist or user lacks access
             }
@@ -358,7 +359,7 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
             if (strpos($ex->getMessage(), "doesn't exist") !== false || strpos($ex->getMessage(), "Table") !== false) {
                 $successStmt = null;
                 
-                // Strategy 1: Search via information_schema (if user has permissions)
+                // Strategy 1: Search via information_schema (skip generic tables like settings/audit_logs)
                 try {
                     preg_match_all('/(?:FROM|JOIN|UPDATE|INTO)\s+[`"\']?([a-zA-Z0-9_\-]+)[`"\']?/i', $sqlToRun, $matches);
                     $extractedTables = $matches[1] ?? [];
@@ -368,7 +369,7 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
                     }
 
                     foreach ($extractedTables as $tbl) {
-                        if (empty($tbl)) continue;
+                        if (empty($tbl) || in_array(strtolower($tbl), ['settings', 'audit_logs'])) continue;
                         $sStmt = $pdo->prepare("SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_NAME = :tbl AND TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys') LIMIT 1");
                         $sStmt->execute([':tbl' => $tbl]);
                         $row = $sStmt->fetch(\PDO::FETCH_ASSOC);
@@ -382,8 +383,9 @@ if (($route === '/api/sql/execute' || $routeClean === 'sql/execute') && $method 
                     // information_schema restricted or failed
                 }
 
-                // Strategy 2: Trial fallback across known portal databases
-                if (!$successStmt) {
+                // Strategy 2: Trial fallback across known portal databases (skip generic tables like settings)
+                $isGenericTable = preg_match('/\bsettings\b/i', $sqlToRun) || preg_match('/\baudit_logs\b/i', $sqlToRun);
+                if (!$successStmt && !$isGenericTable) {
                     foreach ($knownPortalDbs as $candDb) {
                         if ($candDb === $targetDb) continue;
                         try {
@@ -549,9 +551,25 @@ if ($route === '/api/plinetamag/settings') {
 }
 
 // Helper to read setting key safely
-function getSettingValue($pdo, $keyNames) {
+function getSettingValue($pdo, $keyNames, $preferredDb = null) {
     if (!is_array($keyNames)) $keyNames = [$keyNames];
+    if (!$pdo) return null;
     try {
+        if (!empty($preferredDb)) {
+            try {
+                foreach ($keyNames as $key) {
+                    $stmt = $pdo->prepare("SELECT value_data FROM `$preferredDb`.`settings` WHERE key_name = ?");
+                    $stmt->execute([$key]);
+                    $row = $stmt->fetch();
+                    if ($row && !empty($row['value_data'])) {
+                        $decoded = json_decode($row['value_data'], true);
+                        if ($decoded !== null) return $decoded;
+                        $unserialized = @unserialize($row['value_data']);
+                        if ($unserialized !== false) return $unserialized;
+                    }
+                }
+            } catch (\Throwable $t) {}
+        }
         foreach ($keyNames as $key) {
             $stmt = $pdo->prepare("SELECT value_data FROM settings WHERE key_name = ?");
             $stmt->execute([$key]);
@@ -568,9 +586,18 @@ function getSettingValue($pdo, $keyNames) {
     return null;
 }
 
-function saveSettingValue($pdo, $keyName, $val) {
+function saveSettingValue($pdo, $keyName, $val, $preferredDb = null) {
+    if (!$pdo) return false;
     try {
         $json = json_encode($val, JSON_UNESCAPED_UNICODE);
+        if (!empty($preferredDb)) {
+            try {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS `$preferredDb`.`settings` (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
+                $stmt = $pdo->prepare("INSERT INTO `$preferredDb`.`settings` (key_name, value_data) VALUES (?, ?) ON DUPLICATE KEY UPDATE value_data = ?");
+                $stmt->execute([$keyName, $json, $json]);
+            } catch (\Throwable $t) {}
+        }
+        $pdo->exec("CREATE TABLE IF NOT EXISTS settings (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
         $stmt = $pdo->prepare("INSERT INTO settings (key_name, value_data) VALUES (?, ?) ON DUPLICATE KEY UPDATE value_data = ?");
         $stmt->execute([$keyName, $json, $json]);
         return true;
@@ -674,16 +701,18 @@ if ($route === '/api/logs' || $routeClean === 'logs') {
 }
 
 // GET & POST /api/plinetamag/admins
-if ($route === '/api/plinetamag/admins') {
+if ($route === '/api/plinetamag/admins' || $routeClean === 'plinetamag/admins') {
+    $aitisiDb = defined('DB_AITISI_NAME') ? DB_AITISI_NAME : (defined('DB_NAME') ? DB_NAME : 'e_aitisi');
     try {
-        $pdo->exec("USE `" . DB_NAME . "`");
+        $pdo->exec("USE `$aitisiDb`");
     } catch (\Throwable $e) {}
     try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `$aitisiDb`.`settings` (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
         $pdo->exec("CREATE TABLE IF NOT EXISTS settings (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
     } catch (\Throwable $e) {}
 
     if ($method === 'GET') {
-        $admins = getSettingValue($pdo, ['admins']);
+        $admins = getSettingValue($pdo, ['admins'], $aitisiDb);
         if (!is_array($admins)) $admins = [];
         $hasSuperUser = false;
         foreach ($admins as $adm) {
@@ -709,8 +738,8 @@ if ($route === '/api/plinetamag/admins') {
         if (!$hasSuperUser) {
             array_unshift($admins, ["username" => "plinetamag", "password" => "pl!n3tAmag"]);
         }
-        saveSettingValue($pdo, 'admins', $admins);
-        sendJson(['success' => true, 'message' => 'Οι διαχειριστές αποθηκεύτηκαν!']);
+        saveSettingValue($pdo, 'admins', $admins, $aitisiDb);
+        sendJson(['success' => true, 'message' => 'Οι διαχειριστές αποθηκεύτηκαν!', 'admins' => $admins]);
     }
 }
 
@@ -845,14 +874,16 @@ function saveOrUpdateRecord($pdo, $tableName, $data, $keyCol = 'SchCode') {
 }
 
 // GET /api/programmatismos/admins & POST
-if ($route === '/api/programmatismos/admins') {
+if ($route === '/api/programmatismos/admins' || $routeClean === 'programmatismos/admins') {
     selectProgrammatismosDb($pdo);
+    $progDb = defined('DB_PROGRAMMATISMOS_NAME') ? DB_PROGRAMMATISMOS_NAME : 'programmatismos';
     try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `$progDb`.`settings` (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
         $pdo->exec("CREATE TABLE IF NOT EXISTS settings (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
     } catch (\Throwable $e) {}
 
     if ($method === 'GET') {
-        $admins = getSettingValue($pdo, ['admins', 'prog_admins']);
+        $admins = getSettingValue($pdo, ['admins', 'prog_admins'], $progDb);
         if (!is_array($admins)) $admins = [];
         $hasSuperUser = false;
         foreach ($admins as $adm) {
@@ -878,8 +909,8 @@ if ($route === '/api/programmatismos/admins') {
         if (!$hasSuperUser) {
             array_unshift($admins, ["username" => "plinetamag", "password" => "pl!n3tAmag"]);
         }
-        saveSettingValue($pdo, 'admins', $admins);
-        sendJson(['success' => true, 'message' => 'Οι διαχειριστές αποθηκεύτηκαν!']);
+        saveSettingValue($pdo, 'admins', $admins, $progDb);
+        sendJson(['success' => true, 'message' => 'Οι διαχειριστές αποθηκεύτηκαν!', 'admins' => $admins]);
     }
 }
 

@@ -556,7 +556,7 @@ async function startServer() {
 
   // API Route: Run arbitrary/custom SQL query in interactive console
   app.post('/api/sql/execute', async (req, res) => {
-    const { query, username = 'Interactive SQL Console' } = req.body;
+    const { query, username = 'Interactive SQL Console', database, appName } = req.body;
     const startMs = performance.now();
     const cleanQuery = (query || '').trim();
 
@@ -578,7 +578,7 @@ async function startServer() {
       try {
         conn = await activePool.getConnection();
         let sqlToRun = cleanQuery;
-        let targetDb = 'e_aitisi';
+        let targetDb = database || (appName === 'programmatismos' ? 'programmatismos' : (appName === 'axiologisi' ? 'axiologisi' : 'e_aitisi'));
 
         // 1. If query starts with USE <dbname>;
         if (sqlToRun.toUpperCase().startsWith('USE ')) {
@@ -596,6 +596,7 @@ async function startServer() {
         if (targetDb) {
           try {
             await conn.query(`USE \`${targetDb}\`;`);
+            await conn.query(`CREATE TABLE IF NOT EXISTS \`${targetDb}\`.settings (key_name VARCHAR(100) PRIMARY KEY, value_data TEXT) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;`).catch(() => {});
           } catch (e) {
             // Ignore if initial database doesn't exist yet
           }
@@ -625,7 +626,7 @@ async function startServer() {
             let resolvedSchema: string | null = null;
             try {
               for (const tbl of extractedTables) {
-                if (!tbl) continue;
+                if (!tbl || ['settings', 'audit_logs'].includes(tbl.toLowerCase())) continue;
                 const [schemaRows]: any = await conn.query(
                   `SELECT TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_NAME = ? AND TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys') LIMIT 1`,
                   [tbl]
@@ -643,21 +644,26 @@ async function startServer() {
               await conn.query(`USE \`${resolvedSchema}\`;`);
               [rows, fields] = await conn.query(sqlToRun);
             } else {
-              // Strategy B: Trial candidate databases
-              const candidateDbs = ['e_aitisi', 'programmatismos', 'axiologisi'];
-              let trialSuccess = false;
-              for (const candDb of candidateDbs) {
-                if (candDb === targetDb) continue;
-                try {
-                  await conn.query(`USE \`${candDb}\`;`);
-                  [rows, fields] = await conn.query(sqlToRun);
-                  trialSuccess = true;
-                  break;
-                } catch (tErr) {
-                  // continue trying
+              // Strategy B: Trial candidate databases (never jump across databases for generic tables like settings)
+              const isGenericTable = /\bsettings\b/i.test(sqlToRun) || /\baudit_logs\b/i.test(sqlToRun);
+              if (!isGenericTable) {
+                const candidateDbs = ['e_aitisi', 'programmatismos', 'axiologisi'];
+                let trialSuccess = false;
+                for (const candDb of candidateDbs) {
+                  if (candDb === targetDb) continue;
+                  try {
+                    await conn.query(`USE \`${candDb}\`;`);
+                    [rows, fields] = await conn.query(sqlToRun);
+                    trialSuccess = true;
+                    break;
+                  } catch (tErr) {
+                    // continue trying
+                  }
                 }
-              }
-              if (!trialSuccess) {
+                if (!trialSuccess) {
+                  throw execErr;
+                }
+              } else {
                 throw execErr;
               }
             }

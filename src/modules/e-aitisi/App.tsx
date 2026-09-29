@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PersonnelPortalSection } from './components/PersonnelPortalSection';
 import { UserCheck, Shield, Lock, ArrowRight, CheckCircle2, AlertCircle, Sparkles, Key, FileText, Database } from 'lucide-react';
+import { safeApiFetch } from '../../utils/api';
 
 interface EAitisiAppProps {
   appRole?: 'landing' | 'teacher' | 'admin';
@@ -28,14 +29,78 @@ export const EAitisiApp: React.FC<EAitisiAppProps> = ({
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
+  const [adminList, setAdminList] = useState<{ username: string; password: string }[]>(() => {
+    try {
+      const saved = localStorage.getItem('eaitisi_admins_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return [
+      { username: 'plinetamag', password: 'pl!n3tAmag' },
+      { username: 'v.magnesia.admin', password: 'pl!n3tAmag' }
+    ];
+  });
+  const [currentAdminUser, setCurrentAdminUser] = useState<string>(() => {
+    return localStorage.getItem('eaitisi_current_admin') || 'plinetamag';
+  });
 
-  const handleAdminLoginSubmit = (e: React.FormEvent) => {
+  const loadAdmins = async () => {
+    try {
+      const res = await safeApiFetch('/api/plinetamag/admins');
+      const data = res.data;
+      const list = data?.admins || (Array.isArray(data) ? data : null);
+      if (list && Array.isArray(list) && list.length > 0) {
+        setAdminList(list);
+        localStorage.setItem('eaitisi_admins_v2', JSON.stringify(list));
+      }
+    } catch (err) {
+      console.warn('Could not load e-aitisi admins:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadAdmins();
+  }, []);
+
+  const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdminLoginError(null);
+    const cleanUser = adminUsername.trim();
+    const cleanPass = adminPassword.trim();
 
-    if (adminUsername === 'plinetamag' && adminPassword === 'pl!n3tAmag') {
+    // Check hardcoded super user
+    const isHardcodedSuper = (cleanUser === 'plinetamag' && cleanPass === 'pl!n3tAmag');
+
+    // First check in-memory / local storage list
+    let matchedAdmin = adminList.find(
+      a => a.username.trim().toLowerCase() === cleanUser.toLowerCase() && a.password.trim() === cleanPass
+    );
+
+    // If not found, attempt fresh fetch from database
+    if (!isHardcodedSuper && !matchedAdmin) {
+      try {
+        const res = await safeApiFetch('/api/plinetamag/admins');
+        const data = res.data;
+        const list = data?.admins || (Array.isArray(data) ? data : null);
+        if (list && Array.isArray(list) && list.length > 0) {
+          setAdminList(list);
+          localStorage.setItem('eaitisi_admins_v2', JSON.stringify(list));
+          matchedAdmin = list.find(
+            (a: any) => a.username.trim().toLowerCase() === cleanUser.toLowerCase() && a.password.trim() === cleanPass
+          );
+        }
+      } catch (_) {}
+    }
+
+    if (isHardcodedSuper || matchedAdmin) {
+      const loggedUser = isHardcodedSuper ? 'plinetamag' : matchedAdmin!.username;
+      setCurrentAdminUser(loggedUser);
+      localStorage.setItem('eaitisi_current_admin', loggedUser);
       setIsAdminLoginModalOpen(false);
       setAppRole('admin');
+      setAdminLoginError(null);
     } else {
       setAdminLoginError('Εσφαλμένο Όνομα Χρήστη ή Κωδικός Πρόσβασης.');
     }
@@ -46,7 +111,7 @@ export const EAitisiApp: React.FC<EAitisiAppProps> = ({
     return (
       <PersonnelPortalSection
         initialMode="teacher"
-        currentAdminUser="plinetamag"
+        currentAdminUser={currentAdminUser}
         onExitToLanding={() => setAppRole('landing')}
       />
     );
@@ -56,7 +121,7 @@ export const EAitisiApp: React.FC<EAitisiAppProps> = ({
     return (
       <PersonnelPortalSection
         initialMode="admin"
-        currentAdminUser="plinetamag"
+        currentAdminUser={currentAdminUser}
         onExitToLanding={() => setAppRole('landing')}
       />
     );
