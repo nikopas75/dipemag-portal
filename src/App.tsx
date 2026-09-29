@@ -173,6 +173,18 @@ export default function App() {
           isConnected: isConnected,
           activeConnectionMessage: isConnected ? `Σύνδεση MySQL Ενεργή (${host}:${port})` : (data.activeConnectionMessage || 'Αποσυνδεδεμένο')
         }));
+
+        try {
+          if (data.host) {
+            localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify({
+              mode: data.mode || 'external',
+              host: host,
+              port: port,
+              user: data.user || 'plinetamag',
+              database: data.database || 'e_aitisi'
+            }));
+          }
+        } catch (_) {}
       }
     } catch (err) {
       console.warn('Unable to reach /api/status endpoint:', err);
@@ -182,6 +194,14 @@ export default function App() {
   useEffect(() => {
     const initConnection = async () => {
       try {
+        // First check if server already has an active persisted configuration (from .active_db_config.json)
+        const statusRes = await robustApiFetch('/api/status');
+        if (statusRes.ok && statusRes.data && statusRes.data.host) {
+          // Adopt server config without blindly overwriting with client fallbacks
+          await fetchDbStatuses();
+          return;
+        }
+
         const resolved = getResolvedDbConfig();
         const payload = {
           mode: resolved.mode || 'external',
