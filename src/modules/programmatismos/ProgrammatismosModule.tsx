@@ -148,6 +148,12 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
   const [schoolModalSuccess, setSchoolModalSuccess] = useState<string | null>(null);
   const [isSavingSchoolUser, setIsSavingSchoolUser] = useState(false);
 
+  // School Deletion Confirmation Modal State
+  const [schoolToDelete, setSchoolToDelete] = useState<any | null>(null);
+  const [isDeletingSchool, setIsDeletingSchool] = useState(false);
+  const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
+  const [deleteModalSuccess, setDeleteModalSuccess] = useState<string | null>(null);
+
   // SQL Console
   const [sqlQuery, setSqlQuery] = useState('SELECT * FROM dim_users LIMIT 10;');
   const [sqlResult, setSqlResult] = useState<any>(null);
@@ -677,32 +683,46 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
     }
   };
 
-  const handleDeleteSchoolUser = async (rec: any) => {
-    const confirmMsg = `Είστε βέβαιοι ότι θέλετε να διαγράψετε τη σχολική μονάδα "${rec.SchName}" (${rec.SchCode}) από το σύστημα;`;
-    if (!window.confirm(confirmMsg)) return;
+  const handleOpenDeleteSchoolModal = (rec: any) => {
+    setSchoolToDelete(rec);
+    setDeleteModalError(null);
+    setDeleteModalSuccess(null);
+  };
+
+  const handleConfirmDeleteSchoolUser = async () => {
+    if (!schoolToDelete) return;
+    setIsDeletingSchool(true);
+    setDeleteModalError(null);
+    setDeleteModalSuccess(null);
 
     try {
       const res = await safeApiFetch('/api/programmatismos/admin/school/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          table: rec.sourceTable,
-          SchID: rec.SchID,
-          SchCode: rec.SchCode
+          table: schoolToDelete.sourceTable,
+          SchID: schoolToDelete.SchID,
+          SchCode: schoolToDelete.SchCode
         })
       });
       const data = res.data;
       if (data && data.success) {
-        alert(data.message);
+        setDeleteModalSuccess(data.message);
         loadAdminUserRecords();
         loadAdminRecords();
         safeApiFetch(`/api/programmatismos/schools?type=${schoolType}`)
           .then(r => { if (Array.isArray(r.data)) setAvailableSchools(r.data); });
+        setTimeout(() => {
+          setSchoolToDelete(null);
+          setDeleteModalSuccess(null);
+        }, 2200);
       } else {
-        alert('Σφάλμα διαγραφής: ' + (data?.error || 'Άγνωστο σφάλμα'));
+        setDeleteModalError(data?.error || 'Σφάλμα κατά τη διαγραφή της σχολικής μονάδας.');
       }
     } catch (err: any) {
-      alert('Σφάλμα δικτύου: ' + err.message);
+      setDeleteModalError('Σφάλμα δικτύου: ' + err.message);
+    } finally {
+      setIsDeletingSchool(false);
     }
   };
 
@@ -1036,7 +1056,13 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
           onOpenNewSchoolModal={handleOpenNewSchoolModal}
           onOpenEditSchoolModal={handleOpenEditSchoolModal}
           onSaveSchoolUser={handleSaveSchoolUser}
-          onDeleteSchoolUser={handleDeleteSchoolUser}
+          onDeleteSchoolUser={handleOpenDeleteSchoolModal}
+          schoolToDelete={schoolToDelete}
+          setSchoolToDelete={setSchoolToDelete}
+          isDeletingSchool={isDeletingSchool}
+          deleteModalError={deleteModalError}
+          deleteModalSuccess={deleteModalSuccess}
+          onConfirmDeleteSchoolUser={handleConfirmDeleteSchoolUser}
         />
       )}
     </div>

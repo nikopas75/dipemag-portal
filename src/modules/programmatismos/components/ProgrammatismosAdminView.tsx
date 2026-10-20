@@ -121,6 +121,12 @@ interface ProgrammatismosAdminViewProps {
   onOpenEditSchoolModal: (rec: any) => void;
   onSaveSchoolUser: (e: React.FormEvent) => void;
   onDeleteSchoolUser: (rec: any) => void;
+  schoolToDelete?: any | null;
+  setSchoolToDelete?: (rec: any | null) => void;
+  isDeletingSchool?: boolean;
+  deleteModalError?: string | null;
+  deleteModalSuccess?: string | null;
+  onConfirmDeleteSchoolUser?: () => void;
   onRefreshAdminRecords?: () => void;
 }
 
@@ -195,7 +201,13 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
   onOpenNewSchoolModal,
   onOpenEditSchoolModal,
   onSaveSchoolUser,
-  onDeleteSchoolUser
+  onDeleteSchoolUser,
+  schoolToDelete,
+  setSchoolToDelete,
+  isDeletingSchool = false,
+  deleteModalError = null,
+  deleteModalSuccess = null,
+  onConfirmDeleteSchoolUser
 }) => {
   const isSuperUser = currentAdminUser === 'plinetamag';
 
@@ -1683,6 +1695,127 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL: CONFIRM DELETE SCHOOL RECORD & CASCADING DATA */}
+      {schoolToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Επιβεβαίωση Διαγραφής
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Οριστική αφαίρεση σχολείου και δεδομένων
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSchoolToDelete && setSchoolToDelete(null)}
+                disabled={isDeletingSchool}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {deleteModalError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-medium flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{deleteModalError}</span>
+              </div>
+            )}
+
+            {deleteModalSuccess && (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium flex items-center space-x-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>{deleteModalSuccess}</span>
+              </div>
+            )}
+
+            {!deleteModalSuccess && (
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-800 font-mono font-bold text-xs">
+                      {schoolToDelete.SchCode}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                      {getSchoolTypeLabel(schoolToDelete.sourceTable)}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    {schoolToDelete.SchName}
+                  </h4>
+                  <p className="text-xs text-slate-600">
+                    Δ/ντής: <span className="font-semibold text-slate-800">{schoolToDelete.PrName || '-'}</span> {schoolToDelete.PrID ? `(AM: ${schoolToDelete.PrID})` : ''}
+                  </p>
+                  {(schoolToDelete.Organ || schoolToDelete.Location) && (
+                    <p className="text-[11px] text-slate-500">
+                      Οργανικότητα: {schoolToDelete.Organ || '-'} | Έδρα: {schoolToDelete.Location || '-'}
+                    </p>
+                  )}
+                </div>
+
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 space-y-1.5">
+                  <div className="flex items-center space-x-1.5 font-bold text-rose-700">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Προσοχή: Μη αναστρέψιμη διαγραφή</span>
+                  </div>
+                  <p className="text-[11px] text-rose-800 leading-relaxed">
+                    Η ενέργεια αυτή θα διαγράψει οριστικά τη σχολική μονάδα από τον πίνακα χρηστών (<code className="font-mono font-bold">{schoolToDelete.sourceTable}</code>), καθώς και όλες τις τυχόν καταχωρήσεις της στους πίνακες δεδομένων (<code className="font-mono font-bold">*_data_*</code>).
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 flex justify-end space-x-3 border-t border-slate-100">
+              {deleteModalSuccess ? (
+                <button
+                  type="button"
+                  onClick={() => setSchoolToDelete && setSchoolToDelete(null)}
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow transition text-xs"
+                >
+                  Κλείσιμο
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setSchoolToDelete && setSchoolToDelete(null)}
+                    disabled={isDeletingSchool}
+                    className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-medium text-xs transition disabled:opacity-50"
+                  >
+                    Ακύρωση
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onConfirmDeleteSchoolUser && onConfirmDeleteSchoolUser()}
+                    disabled={isDeletingSchool}
+                    className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow transition flex items-center space-x-1.5 text-xs disabled:opacity-50"
+                  >
+                    {isDeletingSchool ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Διαγραφή...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Οριστική Διαγραφή</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

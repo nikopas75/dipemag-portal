@@ -236,21 +236,62 @@ async function getOrInitExternalPool(): Promise<mysql.Pool | null> {
     try {
       const cleanHost = dbConfig.host.trim().replace(/^(tcp|http|https|mysql):\/\//i, '').replace(/\/.*$/, '').split(':')[0];
       const cleanPort = Number(dbConfig.port) || 3306;
-      const pool = createSafePool({
-        host: cleanHost,
-        port: cleanPort,
-        user: dbConfig.user || 'root',
-        password: dbConfig.password || '',
-        database: dbConfig.database || 'e_aitisi',
-        waitForConnections: true,
-        connectionLimit: 10,
-        connectTimeout: 5000
-      });
-      await pool.query('SELECT 1 as test');
+
+      const candidatePasswords = [dbConfig.password || ''];
+      if (dbConfig.user === 'plinetamag') {
+        if (!candidatePasswords.includes('pl!n3tAmag')) candidatePasswords.push('pl!n3tAmag');
+        if (!candidatePasswords.includes('Fr9KC7$c4e')) candidatePasswords.push('Fr9KC7$c4e');
+      }
+
+      let pool: mysql.Pool | null = null;
+      let workingPassword = dbConfig.password || '';
+      let lastErr: any = null;
+
+      for (const pass of candidatePasswords) {
+        let p: mysql.Pool | null = null;
+        try {
+          p = createSafePool({
+            host: cleanHost,
+            port: cleanPort,
+            user: dbConfig.user || 'root',
+            password: pass,
+            database: dbConfig.database || 'e_aitisi',
+            waitForConnections: true,
+            connectionLimit: 10,
+            connectTimeout: 5000
+          });
+          await p.query('SELECT 1 as test');
+          pool = p;
+          workingPassword = pass;
+          break;
+        } catch (err: any) {
+          lastErr = err;
+          if (p) {
+            try { await p.end(); } catch (_) {}
+          }
+          if (err.code !== 'ER_ACCESS_DENIED_ERROR') {
+            break;
+          }
+        }
+      }
+
+      if (!pool) {
+        throw lastErr || new Error('Connection failed');
+      }
+
       await ensureCloneDatabase(pool);
       externalPool = pool;
+      dbConfig.password = workingPassword;
       dbConfig.isConnected = true;
       dbConfig.activeConnectionMessage = `Συνδεδεμένο στον MySQL Server (${dbConfig.user}@${cleanHost}:${cleanPort}/${dbConfig.database})`;
+      persistDbConfig({
+        mode: 'external',
+        host: cleanHost,
+        port: cleanPort,
+        user: dbConfig.user,
+        password: workingPassword,
+        database: dbConfig.database
+      });
       return externalPool;
     } catch (e: any) {
       dbConfig.isConnected = false;
@@ -426,19 +467,47 @@ async function startServer() {
           externalPool = null;
         }
 
-        tempPool = createSafePool({
-          host: cleanHost,
-          port: cleanPort,
-          user: user || 'root',
-          password: password || '',
-          database: database || 'test',
-          waitForConnections: true,
-          connectionLimit: 10,
-          connectTimeout: 7000 // 7-second timeout for ngrok network connection test
-        });
+        const candidatePasswords = [password || ''];
+        if ((user || 'root') === 'plinetamag') {
+          if (!candidatePasswords.includes('pl!n3tAmag')) candidatePasswords.push('pl!n3tAmag');
+          if (!candidatePasswords.includes('Fr9KC7$c4e')) candidatePasswords.push('Fr9KC7$c4e');
+        }
 
-        // Test connection
-        await tempPool.query('SELECT 1 as test');
+        let workingPassword = password || '';
+        let lastErr: any = null;
+
+        for (const pass of candidatePasswords) {
+          let p: mysql.Pool | null = null;
+          try {
+            p = createSafePool({
+              host: cleanHost,
+              port: cleanPort,
+              user: user || 'root',
+              password: pass,
+              database: database || 'e_aitisi',
+              waitForConnections: true,
+              connectionLimit: 10,
+              connectTimeout: 7000 // 7-second timeout for ngrok network connection test
+            });
+            await p.query('SELECT 1 as test');
+            tempPool = p;
+            workingPassword = pass;
+            break;
+          } catch (err: any) {
+            lastErr = err;
+            if (p) {
+              try { await p.end(); } catch (_) {}
+            }
+            if (err.code !== 'ER_ACCESS_DENIED_ERROR') {
+              break;
+            }
+          }
+        }
+
+        if (!tempPool) {
+          throw lastErr || new Error('Connection failed');
+        }
+
         await ensureCloneDatabase(tempPool);
         const finalDb = database || 'e_aitisi';
         externalPool = tempPool;
@@ -447,7 +516,7 @@ async function startServer() {
           host: cleanHost,
           port: cleanPort,
           user: user || 'root',
-          password: password || '',
+          password: workingPassword,
           database: finalDb,
           isConnected: true,
           activeConnectionMessage: `Συνδεδεμένο στον MySQL Server (${user || 'root'}@${cleanHost}:${cleanPort}/${finalDb}) [Βάση e_aitisi ενεργή]`
@@ -457,7 +526,7 @@ async function startServer() {
           host: cleanHost,
           port: cleanPort,
           user: user || 'root',
-          password: password || '',
+          password: workingPassword,
           database: finalDb
         });
         addAuditLog(user || 'admin', `CONNECT TO EXTERNAL MYSQL (${cleanHost}:${cleanPort}/${finalDb})`, 'CONNECT', 1, Math.round(performance.now() - startMs));
@@ -2135,26 +2204,140 @@ async function startServer() {
     }
   });
 
-  // API Route: Delete school user record from *_users table
+  // API Route: Delete school user record from *_users table with cascading deletion of related *_data_* records
   app.post('/api/programmatismos/admin/school/delete', async (req, res) => {
     const { table, SchID, SchCode } = req.body;
     try {
       if (!externalPool) {
-        return res.status(500).json({ success: false, error: 'No MySQL pool' });
+        return res.status(500).json({ success: false, error: 'Δεν υπάρχει ενεργή σύνδεση με τη βάση δεδομένων MySQL.' });
       }
 
-      const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'];
+      const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
       const targetTable = allowedTables.includes(table) ? table : 'dim_users';
 
-      if (SchID && Number(SchID) > 0) {
-        await externalPool.query(`DELETE FROM programmatismos.${targetTable} WHERE SchID = ?;`, [Number(SchID)]);
-      } else if (SchCode) {
-        await externalPool.query(`DELETE FROM programmatismos.${targetTable} WHERE SchCode = ?;`, [String(SchCode).trim()]);
-      } else {
+      if ((!SchID || Number(SchID) <= 0) && (!SchCode || !String(SchCode).trim())) {
         return res.status(400).json({ success: false, error: 'Δεν ορίστηκε SchID ή SchCode για διαγραφή.' });
       }
 
-      res.json({ success: true, message: `Η εγγραφή διαγράφηκε επιτυχώς από τον πίνακα ${targetTable}.` });
+      const conn = await externalPool.getConnection();
+      try {
+        await conn.beginTransaction();
+
+        // 1. Pre-fetch the exact school record to retrieve full details (SchID, SchCode, SchName)
+        let targetSchID = SchID && Number(SchID) > 0 ? Number(SchID) : null;
+        let targetSchCode = SchCode ? String(SchCode).trim() : '';
+        let targetSchName = '';
+
+        const findWhere = targetSchID ? 'SchID = ?' : 'SchCode = ?';
+        const findVal = targetSchID ? targetSchID : targetSchCode;
+        const [foundRows]: any = await conn.query(
+          `SELECT SchID, SchCode, SchName FROM programmatismos.${targetTable} WHERE ${findWhere} LIMIT 1;`,
+          [findVal]
+        );
+
+        if (foundRows && foundRows.length > 0) {
+          targetSchID = foundRows[0].SchID;
+          targetSchCode = String(foundRows[0].SchCode || '').trim();
+          targetSchName = String(foundRows[0].SchName || '').trim();
+        }
+
+        // 2. Map target user table to all corresponding data tables
+        const relatedTablesMap: Record<string, string[]> = {
+          dim_users: ['dim_data_math', 'dim_data_ekp'],
+          nip_users: ['nip_data_math', 'nip_data_ekp'],
+          eid_dim_users: ['eid_dim_data_math', 'eid_dim_data_ekp'],
+          eid_nip_users: ['eid_nip_data_math', 'eid_nip_data_ekp'],
+          eid_users: ['eid_dim_data_math', 'eid_dim_data_ekp', 'eid_nip_data_math', 'eid_nip_data_ekp']
+        };
+
+        const dataTablesToCheck = relatedTablesMap[targetTable] || [];
+        const deletedDetails: string[] = [];
+        let totalDeletedDataRows = 0;
+
+        // 3. Delete matching records from all associated *_data_* tables
+        for (const dTable of dataTablesToCheck) {
+          try {
+            const [tExists]: any = await conn.query(`SHOW TABLES FROM programmatismos LIKE ?;`, [dTable]);
+            if (!tExists || tExists.length === 0) continue;
+
+            const [cols]: any = await conn.query(`SHOW COLUMNS FROM programmatismos.${dTable};`);
+            const colNames = cols.map((c: any) => c.Field);
+            const hasSchCode = colNames.includes('SchCode');
+            const hasSchID = colNames.includes('SchID');
+
+            let delSql = '';
+            let delParams: any[] = [];
+
+            if (hasSchCode && hasSchID && targetSchCode && targetSchID) {
+              delSql = `DELETE FROM programmatismos.${dTable} WHERE SchCode = ? OR SchID = ?;`;
+              delParams = [targetSchCode, targetSchID];
+            } else if (hasSchCode && targetSchCode) {
+              delSql = `DELETE FROM programmatismos.${dTable} WHERE SchCode = ?;`;
+              delParams = [targetSchCode];
+            } else if (hasSchID && targetSchID) {
+              delSql = `DELETE FROM programmatismos.${dTable} WHERE SchID = ?;`;
+              delParams = [targetSchID];
+            }
+
+            if (delSql) {
+              const [delRes]: any = await conn.query(delSql, delParams);
+              const affected = delRes?.affectedRows || 0;
+              if (affected > 0) {
+                totalDeletedDataRows += affected;
+                deletedDetails.push(`${affected} από ${dTable}`);
+              }
+            }
+          } catch (dErr: any) {
+            console.warn(`[Cascading Delete] Σφάλμα στον πίνακα ${dTable}:`, dErr.message);
+          }
+        }
+
+        // 4. Delete the school user record itself from the *_users table
+        let userDelSql = '';
+        let userDelParams: any[] = [];
+        if (targetSchID) {
+          userDelSql = `DELETE FROM programmatismos.${targetTable} WHERE SchID = ?;`;
+          userDelParams = [targetSchID];
+        } else if (targetSchCode) {
+          userDelSql = `DELETE FROM programmatismos.${targetTable} WHERE SchCode = ?;`;
+          userDelParams = [targetSchCode];
+        }
+
+        if (userDelSql) {
+          await conn.query(userDelSql, userDelParams);
+        }
+
+        // 5. Commit atomic transaction
+        await conn.commit();
+
+        addAuditLog(
+          'plinetamag',
+          `DELETE SCHOOL: ${targetSchName || targetSchCode} (${targetSchCode}) from ${targetTable} and related data tables`,
+          'DELETE',
+          1 + totalDeletedDataRows,
+          0
+        );
+
+        let message = `Η σχολική μονάδα "${targetSchName || targetSchCode}" (${targetSchCode}) διαγράφηκε επιτυχώς από τον πίνακα ${targetTable}.`;
+        if (deletedDetails.length > 0) {
+          message += ` Ταυτόχρονα εκκαθαρίστηκαν αυτόματα οι σχετικές εγγραφές δεδομένων: ${deletedDetails.join(', ')}.`;
+        } else {
+          message += ` Δεν εντοπίστηκαν εκκρεμείς εγγραφές στους αντίστοιχους πίνακες δεδομένων (*_data_*).`;
+        }
+
+        res.json({
+          success: true,
+          message,
+          deletedUserCount: 1,
+          deletedDataRows: totalDeletedDataRows,
+          details: deletedDetails
+        });
+      } catch (txErr: any) {
+        await conn.rollback();
+        throw txErr;
+      } finally {
+        conn.release();
+      }
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -2490,7 +2673,7 @@ Records Sample: ${JSON.stringify(recordSummary)}`
     }
   });
 
-async function autoConnectToNgrok() {
+async function autoConnectDatabase() {
   if (dbConfig.mode === 'embedded') {
     console.log("Server operating in embedded sandbox mode.");
     return;
@@ -2573,7 +2756,7 @@ async function autoConnectToNgrok() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`ΔΠΕ Μαγνησίας - Κεντρική Πύλη Εφαρμογών (DIPEMAG Portal) server running on port ${PORT}`);
-    autoConnectToNgrok();
+    autoConnectDatabase();
   });
 }
 

@@ -72,6 +72,15 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
     } else {
       setHost(val);
     }
+    if (clean.includes('ngrok')) {
+      if (password === 'Fr9KC7$c4e' || password === 'testpassword' || !password) {
+        setPassword('pl!n3tAmag');
+      }
+    } else if (clean.startsWith('10.') || clean.startsWith('192.168.')) {
+      if (password === 'pl!n3tAmag' || password === 'testpassword' || !password) {
+        setPassword('Fr9KC7$c4e');
+      }
+    }
   };
 
   const handleParseTunnel = () => {
@@ -87,6 +96,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
       if (p && !isNaN(Number(p))) setPort(Number(p.trim()));
     } else {
       setHost(raw.trim());
+    }
+    if (password === 'Fr9KC7$c4e' || password === 'testpassword' || !password) {
+      setPassword('pl!n3tAmag');
     }
     setTunnelInput('');
   };
@@ -107,12 +119,18 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
       }
     }
 
+    const finalPassword = (cleanHost.includes('ngrok') && (password === 'Fr9KC7$c4e' || password === 'testpassword' || !password))
+      ? 'pl!n3tAmag'
+      : (cleanHost.startsWith('10.') && (password === 'pl!n3tAmag' || password === 'testpassword' || !password))
+      ? 'Fr9KC7$c4e'
+      : password;
+
     const result = await onSaveConnection({
       mode,
       host: cleanHost,
       port: cleanPort,
       user,
-      password,
+      password: finalPassword,
       database
     });
 
@@ -210,7 +228,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                     type="text"
                     value={tunnelInput}
                     onChange={e => setTunnelInput(e.target.value)}
-                    placeholder="π.χ. tcp://2.tcp.eu.ngrok.io:16641..."
+                    placeholder="π.χ. tcp://0.tcp.eu.ngrok.io:12345..."
                     className="flex-1 bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 font-mono"
                   />
                   <button

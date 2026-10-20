@@ -22,7 +22,7 @@ export const LOCALSTORAGE_KEY = 'eaitisi_db_config';
 export function getResolvedDbConfig(dbNameOverride?: string): DbConfig {
   let saved: Partial<DbConfig> | null = null;
   try {
-    const item = localStorage.getItem(LOCALSTORAGE_KEY) || localStorage.getItem('ngrok_db_config');
+    const item = localStorage.getItem(LOCALSTORAGE_KEY);
     if (item) {
       saved = JSON.parse(item);
     }

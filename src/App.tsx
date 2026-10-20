@@ -255,7 +255,6 @@ export default function App() {
 
       if (result.ok && result.data && result.data.success) {
         localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(configToSave));
-        localStorage.setItem('ngrok_db_config', JSON.stringify(configToSave));
         setCurrentConnectionConfig(prev => ({ ...prev, ...configToSave, isConnected: true }));
         return { success: true };
       }
@@ -266,7 +265,6 @@ export default function App() {
       const targetHost = configToSave.host;
       if (targetHost.startsWith('10.') || targetHost.startsWith('192.168.') || targetHost.startsWith('172.')) {
         localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(configToSave));
-        localStorage.setItem('ngrok_db_config', JSON.stringify(configToSave));
         setCurrentConnectionConfig(prev => ({ ...prev, ...configToSave, isConnected: false }));
         return {
           success: false,

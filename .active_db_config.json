@@ -1,8 +1,8 @@
 {
   "mode": "external",
-  "host": "6.tcp.eu.ngrok.io",
-  "port": 15050,
+  "host": "10.2.49.42",
+  "port": 3306,
   "user": "plinetamag",
-  "password": "testpassword",
+  "password": "Fr9KC7$c4e",
   "database": "e_aitisi"
 }
