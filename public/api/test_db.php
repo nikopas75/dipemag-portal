@@ -108,7 +108,48 @@ $databasesToTest = [
 </div>
 
 <div class="card">
-  <h3>3. Επιστροφή στην Εφαρμογή:</h3>
+  <h3>3. Αυτόματος Έλεγχος JavaScript Fetch από τον Φυλλομετρητή (Browser REST API Test):</h3>
+  <p style="font-size: 13px; color: #94a3b8;">Ελέγχει αν ο browser μπορεί να καλέσει τα endpoints μέσω JavaScript fetch χωρίς σφάλματα CORS, MIME type ή Rewrite rules:</p>
+  <div id="fetch-results" style="font-family: monospace; font-size: 13px; margin-top: 10px;">
+    <p>⏳ Εκτέλεση ελέγχων fetch...</p>
+  </div>
+  <script>
+    async function testFetchEndpoints() {
+      const container = document.getElementById('fetch-results');
+      const tests = [
+        { name: 'GET status (Direct /api)', url: '../api/index.php?route=status' },
+        { name: 'GET status (Relative api/)', url: 'index.php?route=status' },
+        { name: 'GET programmatismos/schools (Δημοτικά)', url: 'index.php?route=programmatismos/schools&type=dim' },
+        { name: 'GET plinetamag/admins', url: 'index.php?route=plinetamag/admins' }
+      ];
+
+      let html = '<ul style="padding-left: 20px;">';
+      for (const t of tests) {
+        try {
+          const res = await fetch(t.url);
+          const text = await res.text();
+          let parsed;
+          try { parsed = JSON.parse(text); } catch(_) {}
+          if (res.ok && parsed) {
+            html += '<li style="margin-bottom: 6px;"><span class="badge badge-ok">PASS</span> <strong>' + t.name + '</strong>: HTTP ' + res.status + ' (Έγκυρο JSON ✓)</li>';
+          } else if (text.trim().startsWith('<')) {
+            html += '<li style="margin-bottom: 6px;"><span class="badge badge-err">HTML RESPONSE</span> <strong>' + t.name + '</strong>: Επέστρεψε σελίδα HTML αντί για JSON (πιθανόν Rewrite/404).</li>';
+          } else {
+            html += '<li style="margin-bottom: 6px;"><span class="badge badge-err">FAIL</span> <strong>' + t.name + '</strong>: HTTP ' + res.status + ' - ' + (parsed?.error || text.slice(0, 100)) + '</li>';
+          }
+        } catch (err) {
+          html += '<li style="margin-bottom: 6px;"><span class="badge badge-err">NETWORK ERROR</span> <strong>' + t.name + '</strong>: ' + err.message + '</li>';
+        }
+      }
+      html += '</ul>';
+      container.innerHTML = html;
+    }
+    testFetchEndpoints();
+  </script>
+</div>
+
+<div class="card">
+  <h3>4. Επιστροφή στην Εφαρμογή:</h3>
   <p><a href="../" style="font-weight: bold; font-size: 15px;">&larr; Μετάβαση στην Κεντρική Πύλη (index.html)</a></p>
 </div>
 

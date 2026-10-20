@@ -24,21 +24,32 @@ function sendJson($data, $statusCode = 200) {
     exit;
 }
 
+function logPhpError($msg) {
+    $logFile = __DIR__ . '/api_errors.log';
+    if (!@file_put_contents($logFile, date('[Y-m-d H:i:s] ') . $msg . "\n", FILE_APPEND)) {
+        @file_put_contents(sys_get_temp_dir() . '/eaitisi_api_errors.log', date('[Y-m-d H:i:s] ') . $msg . "\n", FILE_APPEND);
+    }
+}
+
 set_exception_handler(function ($e) {
-    @file_put_contents(__DIR__ . '/api_errors.log', date('[Y-m-d H:i:s] ') . "Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine() . "\n", FILE_APPEND);
+    logPhpError("Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
     sendJson(['success' => false, 'error' => 'Σφάλμα PHP: ' . $e->getMessage(), 'file' => basename($e->getFile()), 'line' => $e->getLine()], 200);
 });
 
 set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     if (!(error_reporting() & $errno)) return false;
-    @file_put_contents(__DIR__ . '/api_errors.log', date('[Y-m-d H:i:s] ') . "PHP Error [$errno]: $errstr in $errfile:$errline\n", FILE_APPEND);
+    logPhpError("PHP Error [$errno]: $errstr in $errfile:$errline");
+    // Ignore non-fatal notices and deprecations in PHP 8.2
+    if (in_array($errno, [E_NOTICE, E_USER_NOTICE, E_DEPRECATED, E_USER_DEPRECATED])) {
+        return false;
+    }
     sendJson(['success' => false, 'error' => "Σφάλμα PHP [$errno]: $errstr στο " . basename($errfile) . ":$errline"], 200);
 });
 
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
-        @file_put_contents(__DIR__ . '/api_errors.log', date('[Y-m-d H:i:s] ') . "Fatal Error [" . $error['type'] . "]: " . $error['message'] . " in " . $error['file'] . ":" . $error['line'] . "\n", FILE_APPEND);
+        logPhpError("Fatal Error [" . $error['type'] . "]: " . $error['message'] . " in " . $error['file'] . ":" . $error['line']);
         if (ob_get_length()) ob_clean();
         header('Access-Control-Allow-Origin: *');
         header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -52,7 +63,6 @@ register_shutdown_function(function() {
     }
 });
 
-
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     if (ob_get_length()) ob_clean();
     http_response_code(200);
@@ -60,10 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/config.php';
-
-if (session_status() === PHP_SESSION_NONE) {
-    @session_start();
-}
 
 $requestUriPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
@@ -168,6 +174,19 @@ try {
 } catch (\Throwable $e) {
     $dbInitError = $e->getMessage();
 }
+
+function getActivePdo() {
+    global $pdo, $dbInitError;
+    if ($pdo !== null) return $pdo;
+    try {
+        $pdo = getDbConnection();
+        if ($pdo) ensureEaitisiSchema($pdo);
+    } catch (\Throwable $e) {
+        $dbInitError = $e->getMessage();
+    }
+    return $pdo;
+}
+
 
 // -------------------------------------------------------------
 // CORE GENERAL ROUTES
@@ -796,10 +815,13 @@ if ($route === '/api/plinetamag/restore-sync' && $method === 'POST') {
 // MODULE 2: ΠΡΟΓΡΑΜΜΑΤΙΣΜΟΣ (PROGRAMMATISMOS) ROUTES
 // -------------------------------------------------------------
 
-function selectProgrammatismosDb($pdo) {
+function selectProgrammatismosDb(&$pdo) {
     static $attempted = false;
     if ($attempted) return;
     $attempted = true;
+    if (!$pdo) {
+        $pdo = getActivePdo();
+    }
     if (!$pdo) return;
 
     // First check if dim_users is already in current active database
@@ -963,6 +985,9 @@ if (preg_match('#^/api/programmatismos/table-comments/(.+)$#', $route, $matches)
 // GET /api/programmatismos/schools
 if ($route === '/api/programmatismos/schools' && $method === 'GET') {
     selectProgrammatismosDb($pdo);
+    if (!$pdo) {
+        sendJson([]);
+    }
     $type = $_GET['type'] ?? 'dim';
     $tbls = getProgrammatismosTables($type);
     $userTable = $tbls['user'];
