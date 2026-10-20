@@ -1357,25 +1357,140 @@ if ($route === '/api/programmatismos/admin/school/save' && $method === 'POST') {
 // POST /api/programmatismos/admin/school/delete
 if ($route === '/api/programmatismos/admin/school/delete' && $method === 'POST') {
     selectProgrammatismosDb($pdo);
+    if (!$pdo) {
+        sendJson(['success' => false, 'error' => 'Δεν υπάρχει ενεργή σύνδεση με τη βάση δεδομένων.'], 500);
+    }
     $tbl = $input['table'] ?? 'dim_users';
-    $allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'];
+    $allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
     $targetTable = in_array($tbl, $allowedTables) ? $tbl : 'dim_users';
 
-    $schID = isset($input['SchID']) ? (int)$input['SchID'] : 0;
+    $schID = isset($input['SchID']) && (int)$input['SchID'] > 0 ? (int)$input['SchID'] : null;
     $schCode = trim($input['SchCode'] ?? '');
 
+    if (!$schID && empty($schCode)) {
+        sendJson(['success' => false, 'error' => 'Δεν ορίστηκε SchID ή SchCode για διαγραφή.'], 400);
+    }
+
     try {
-        if ($schID > 0) {
-            $stmt = $pdo->prepare("DELETE FROM `$targetTable` WHERE SchID = ?");
-            $stmt->execute([$schID]);
-        } else if ($schCode !== '') {
-            $stmt = $pdo->prepare("DELETE FROM `$targetTable` WHERE SchCode = ?");
-            $stmt->execute([$schCode]);
-        } else {
-            sendJson(['success' => false, 'error' => 'Δεν ορίστηκε SchID ή SchCode για διαγραφή.'], 400);
+        $pdo->beginTransaction();
+
+        // 1. Pre-fetch exact school record to retrieve full details (SchID, SchCode, SchName)
+        $targetSchID = $schID;
+        $targetSchCode = $schCode;
+        $targetSchName = '';
+
+        $findWhere = $targetSchID ? 'SchID = ?' : 'SchCode = ?';
+        $findVal = $targetSchID ? $targetSchID : $targetSchCode;
+        $findStmt = $pdo->prepare("SELECT SchID, SchCode, SchName FROM `$targetTable` WHERE $findWhere LIMIT 1");
+        $findStmt->execute([$findVal]);
+        $found = $findStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($found) {
+            $targetSchID = (int)$found['SchID'];
+            $targetSchCode = trim($found['SchCode'] ?? '');
+            $targetSchName = trim($found['SchName'] ?? '');
         }
-        sendJson(['success' => true, 'message' => "Η εγγραφή διαγράφηκε επιτυχώς από τον πίνακα $targetTable."]);
+
+        // 2. Map target user table to all corresponding data tables
+        $relatedTablesMap = [
+            'dim_users' => ['dim_data_math', 'dim_data_ekp'],
+            'nip_users' => ['nip_data_math', 'nip_data_ekp'],
+            'eid_dim_users' => ['eid_dim_data_math', 'eid_dim_data_ekp'],
+            'eid_nip_users' => ['eid_nip_data_math', 'eid_nip_data_ekp'],
+            'eid_users' => ['eid_dim_data_math', 'eid_dim_data_ekp', 'eid_nip_data_math', 'eid_nip_data_ekp']
+        ];
+
+        $dataTablesToCheck = $relatedTablesMap[$targetTable] ?? [];
+        $deletedDetails = [];
+        $totalDeletedDataRows = 0;
+
+        // 3. Delete matching records from all associated *_data_* tables
+        foreach ($dataTablesToCheck as $dTable) {
+            try {
+                $checkTableStmt = $pdo->prepare("SHOW TABLES LIKE ?");
+                $checkTableStmt->execute([$dTable]);
+                if (!$checkTableStmt->fetch()) continue;
+
+                $colsStmt = $pdo->query("SHOW COLUMNS FROM `$dTable`");
+                $cols = $colsStmt ? $colsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+                $colNames = array_map(fn($c) => $c['Field'], $cols);
+                $hasSchCode = in_array('SchCode', $colNames);
+                $hasSchID = in_array('SchID', $colNames);
+
+                $delSql = '';
+                $delParams = [];
+
+                if ($hasSchCode && $hasSchID && !empty($targetSchCode) && !empty($targetSchID)) {
+                    $delSql = "DELETE FROM `$dTable` WHERE SchCode = ? OR SchID = ?";
+                    $delParams = [$targetSchCode, $targetSchID];
+                } else if ($hasSchCode && !empty($targetSchCode)) {
+                    $delSql = "DELETE FROM `$dTable` WHERE SchCode = ?";
+                    $delParams = [$targetSchCode];
+                } else if ($hasSchID && !empty($targetSchID)) {
+                    $delSql = "DELETE FROM `$dTable` WHERE SchID = ?";
+                    $delParams = [$targetSchID];
+                }
+
+                if (!empty($delSql)) {
+                    $delStmt = $pdo->prepare($delSql);
+                    $delStmt->execute($delParams);
+                    $affected = $delStmt->rowCount();
+                    if ($affected > 0) {
+                        $totalDeletedDataRows += $affected;
+                        $deletedDetails[] = "$affected από $dTable";
+                    }
+                }
+            } catch (\Throwable $dErr) {
+                // Log or ignore subtable error
+            }
+        }
+
+        // 4. Delete the school user record itself from the *_users table
+        $userDelSql = '';
+        $userDelParams = [];
+        if (!empty($targetSchID)) {
+            $userDelSql = "DELETE FROM `$targetTable` WHERE SchID = ?";
+            $userDelParams = [$targetSchID];
+        } else if (!empty($targetSchCode)) {
+            $userDelSql = "DELETE FROM `$targetTable` WHERE SchCode = ?";
+            $userDelParams = [$targetSchCode];
+        }
+
+        if (!empty($userDelSql)) {
+            $userDelStmt = $pdo->prepare($userDelSql);
+            $userDelStmt->execute($userDelParams);
+        }
+
+        // 5. Commit atomic transaction
+        $pdo->commit();
+
+        $auditUser = 'plinetamag';
+        $auditQuery = "DELETE SCHOOL: " . ($targetSchName ?: $targetSchCode) . " ($targetSchCode) from $targetTable and related data tables";
+        try {
+            $auditStmt = $pdo->prepare("INSERT INTO audit_logs (id, timestamp, username, query, action_type, affected_rows, execution_time_ms) VALUES (NULL, ?, ?, ?, 'DELETE', ?, 1)");
+            $auditStmt->execute([date('c'), $auditUser, $auditQuery, 1 + $totalDeletedDataRows]);
+        } catch (\Throwable $e) {}
+
+        $schoolDisplay = $targetSchName ? "\"$targetSchName\"" : ($targetSchCode ?: "SchID $schID");
+        $codeDisplay = $targetSchCode ? " ($targetSchCode)" : "";
+        $message = "Η σχολική μονάδα $schoolDisplay$codeDisplay διαγράφηκε επιτυχώς από τον πίνακα $targetTable.";
+        if (!empty($deletedDetails)) {
+            $message .= " Ταυτόχρονα εκκαθαρίστηκαν αυτόματα οι σχετικές εγγραφές δεδομένων: " . implode(', ', $deletedDetails) . ".";
+        } else {
+            $message .= " Δεν εντοπίστηκαν εκκρεμείς εγγραφές στους αντίστοιχους πίνακες δεδομένων (*_data_*).";
+        }
+
+        sendJson([
+            'success' => true,
+            'message' => $message,
+            'deletedUserCount' => 1,
+            'deletedDataRows' => $totalDeletedDataRows,
+            'details' => $deletedDetails
+        ]);
     } catch (\Exception $e) {
+        if ($pdo && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         sendJson(['success' => false, 'error' => $e->getMessage()], 500);
     }
 }
