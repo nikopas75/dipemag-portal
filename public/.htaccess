@@ -1,3 +1,11 @@
+<IfModule mod_mime.c>
+  AddType application/javascript .js .mjs
+  AddType text/css .css
+  AddType application/json .json
+  AddType image/svg+xml .svg
+  AddType font/woff2 .woff2
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
@@ -6,8 +14,11 @@
   RewriteRule ^api/(.*)$ api/index.php?route=$1 [QSA,L]
   RewriteRule ^api$ api/index.php [QSA,L]
 
-  # SPA fallback to index.html
+  # Don't rewrite existing files or assets
+  RewriteRule ^(assets|api|fonts)/ - [L]
   RewriteRule ^index\.html$ - [L]
+
+  # SPA fallback to index.html for virtual routes
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . index.html [L]

@@ -377,7 +377,7 @@ export const AdminDashboardPane: React.FC<AdminDashboardPaneProps> = ({
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchName = `${r.Επώνυμο || ''} ${r.Όνομα || ''}`.toLowerCase().includes(q);
-      const matchAm = (r.ΑρMητρ || r.ΑρΜητρ || '').toString().includes(q);
+      const matchAm = (r.ΑρΜητρ || (r as any).ΑρMητρ || '').toString().includes(q);
       const matchAfm = (r.ΑΦΜ || '').toString().includes(q);
       return matchName || matchAm || matchAfm;
     }

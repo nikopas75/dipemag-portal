@@ -25,17 +25,20 @@ function sendJson($data, $statusCode = 200) {
 }
 
 set_exception_handler(function ($e) {
-    sendJson(['success' => false, 'error' => 'Σφάλμα PHP: ' . $e->getMessage()], 200);
+    @file_put_contents(__DIR__ . '/api_errors.log', date('[Y-m-d H:i:s] ') . "Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine() . "\n", FILE_APPEND);
+    sendJson(['success' => false, 'error' => 'Σφάλμα PHP: ' . $e->getMessage(), 'file' => basename($e->getFile()), 'line' => $e->getLine()], 200);
 });
 
 set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     if (!(error_reporting() & $errno)) return false;
-    sendJson(['success' => false, 'error' => "Σφάλμα PHP [$errno]: $errstr στο $errfile:$errline"], 200);
+    @file_put_contents(__DIR__ . '/api_errors.log', date('[Y-m-d H:i:s] ') . "PHP Error [$errno]: $errstr in $errfile:$errline\n", FILE_APPEND);
+    sendJson(['success' => false, 'error' => "Σφάλμα PHP [$errno]: $errstr στο " . basename($errfile) . ":$errline"], 200);
 });
 
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
+        @file_put_contents(__DIR__ . '/api_errors.log', date('[Y-m-d H:i:s] ') . "Fatal Error [" . $error['type'] . "]: " . $error['message'] . " in " . $error['file'] . ":" . $error['line'] . "\n", FILE_APPEND);
         if (ob_get_length()) ob_clean();
         header('Access-Control-Allow-Origin: *');
         header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -44,10 +47,11 @@ register_shutdown_function(function() {
         http_response_code(200);
         echo json_encode([
             'success' => false,
-            'error' => 'Κρίσιμο Σφάλμα PHP [' . $error['type'] . ']: ' . $error['message'] . ' στο ' . $error['file'] . ':' . $error['line']
+            'error' => 'Κρίσιμο Σφάλμα PHP [' . $error['type'] . ']: ' . $error['message'] . ' στο ' . basename($error['file']) . ':' . $error['line']
         ], JSON_UNESCAPED_UNICODE);
     }
 });
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     if (ob_get_length()) ob_clean();
@@ -699,6 +703,18 @@ if ($route === '/api/logs' || $routeClean === 'logs') {
 
     sendJson($logs);
 }
+
+// GET /api/errors - View PHP execution log
+if ($route === '/api/errors' || $routeClean === 'errors') {
+    $logFile = __DIR__ . '/api_errors.log';
+    $content = file_exists($logFile) ? file_get_contents($logFile) : 'Δεν υπάρχουν καταγεγραμμένα σφάλματα (api_errors.log είναι κενό).';
+    sendJson([
+        'success' => true,
+        'hasErrors' => file_exists($logFile) && filesize($logFile) > 0,
+        'log' => $content
+    ]);
+}
+
 
 // GET & POST /api/plinetamag/admins
 if ($route === '/api/plinetamag/admins' || $routeClean === 'plinetamag/admins') {

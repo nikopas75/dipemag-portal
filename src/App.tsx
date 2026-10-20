@@ -1,37 +1,19 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppId, DbConfig } from './types';
 import { initialDbConfigs } from './data/mockData';
 import { Header } from './components/Header';
 import { SuiteHub } from './components/SuiteHub';
 import { ConnectionModal } from './components/ConnectionModal';
 import { MysqlConfig } from './modules/e-aitisi/types';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
-// Dynamic lazy imports for standalone modules
-const EAitisiApp = lazy(() => import('./modules/e-aitisi/App'));
-const ProgrammatismosModule = lazy(() =>
-  import('./modules/programmatismos/ProgrammatismosModule').then((m) => ({
-    default: m.ProgrammatismosModule,
-  }))
-);
-const AxiologisiModule = lazy(() =>
-  import('./modules/axiologisi/AxiologisiModule').then((m) => ({
-    default: m.AxiologisiModule,
-  }))
-);
-
-const ModuleFallback = ({ title }: { title: string }) => (
-  <div className="min-h-[500px] bg-slate-900/80 rounded-3xl border border-slate-800 p-12 flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-200">
-    <div className="relative flex items-center justify-center">
-      <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-blue-500 animate-spin" />
-    </div>
-    <div className="text-center space-y-1">
-      <p className="text-sm font-semibold text-slate-200">Φόρτωση {title}...</p>
-      <p className="text-xs text-slate-500">Προετοιμασία περιβάλλοντος εφαρμογής</p>
-    </div>
-  </div>
-);
+// Direct static imports to avoid dynamic chunk failures on Apache/sch.gr
+import EAitisiApp from './modules/e-aitisi/App';
+import { ProgrammatismosModule } from './modules/programmatismos/ProgrammatismosModule';
+import { AxiologisiModule } from './modules/axiologisi/AxiologisiModule';
 
 import { getResolvedDbConfig, LOCALSTORAGE_KEY } from './config/dbDefaults';
+
 
 // Helper for robust API calls across dev servers, domain roots, and Apache subfolders
 async function robustApiFetch(path: string, options?: RequestInit) {
@@ -119,8 +101,46 @@ async function robustApiFetch(path: string, options?: RequestInit) {
   };
 }
 
+const getInitialActiveApp = (): AppId => {
+  try {
+    const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+    if (hash === 'aitisi' || hash === 'programmatismos' || hash === 'axiologisi') {
+      return hash as AppId;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const appParam = params.get('app')?.toLowerCase();
+    if (appParam === 'aitisi' || appParam === 'programmatismos' || appParam === 'axiologisi') {
+      return appParam as AppId;
+    }
+  } catch (_) {}
+  return 'hub';
+};
+
 export default function App() {
-  const [activeApp, setActiveApp] = useState<AppId>('hub');
+  const [activeApp, setActiveApp] = useState<AppId>(getInitialActiveApp);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const appFromHash = getInitialActiveApp();
+      setActiveApp(appFromHash);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const handleSelectApp = (app: AppId) => {
+    setActiveApp(app);
+    try {
+      if (app === 'hub') {
+        if (window.location.hash) {
+          history.pushState(null, '', window.location.pathname + window.location.search);
+        }
+      } else {
+        window.location.hash = `#/${app}`;
+      }
+    } catch (_) {}
+  };
+
   const [aitisiRole, setAitisiRole] = useState<'landing' | 'teacher' | 'admin'>('landing');
   const [aitisiAdminSubTab, setAitisiAdminSubTab] = useState<'portal' | 'sql' | 'ai'>('portal');
   const [programmatismosRole, setProgrammatismosRole] = useState<'landing' | 'director' | 'admin'>('landing');
@@ -128,7 +148,11 @@ export default function App() {
   const [dbConfigs, setDbConfigs] = useState<Record<'aitisi' | 'programmatismos' | 'axiologisi', DbConfig>>(initialDbConfigs);
   const [dbStatuses, setDbStatuses] = useState<Record<string, { connected: boolean; host: string; port?: number | string; database: string; message: string }>>({});
   const [isDbModalOpen, setIsDbModalOpen] = useState<boolean>(false);
-  const [currentConnectionConfig, setCurrentConnectionConfig] = useState<MysqlConfig>(() => getResolvedDbConfig());
+  const [currentConnectionConfig, setCurrentConnectionConfig] = useState<MysqlConfig>(() => ({
+    mode: 'external',
+    ...getResolvedDbConfig()
+  } as MysqlConfig));
+
 
   const fetchDbStatuses = async () => {
     try {
@@ -283,7 +307,7 @@ export default function App() {
       {/* Top Header & Navigation Bar */}
       <Header
         activeApp={activeApp}
-        setActiveApp={setActiveApp}
+        setActiveApp={handleSelectApp}
         dbStatuses={dbStatuses}
         onOpenDbModal={() => setIsDbModalOpen(true)}
         aitisiRole={aitisiRole}
@@ -307,17 +331,19 @@ export default function App() {
       {/* Main Content Viewport */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         {activeApp === 'hub' && (
-          <SuiteHub
-            onSelectApp={setActiveApp}
-            dbConfigs={dbConfigs}
-            dbStatuses={dbStatuses}
-            onOpenDbModal={() => setIsDbModalOpen(true)}
-            onRefreshDbStatuses={fetchDbStatuses}
-          />
+          <ErrorBoundary moduleTitle="Κεντρική Πύλη (Hub)" onReset={() => handleSelectApp('hub')}>
+            <SuiteHub
+              onSelectApp={handleSelectApp}
+              dbConfigs={dbConfigs}
+              dbStatuses={dbStatuses}
+              onOpenDbModal={() => setIsDbModalOpen(true)}
+              onRefreshDbStatuses={fetchDbStatuses}
+            />
+          </ErrorBoundary>
         )}
 
         {activeApp === 'aitisi' && (
-          <Suspense fallback={<ModuleFallback title="Η-Αίτηση" />}>
+          <ErrorBoundary moduleTitle="Η-Αίτηση (e-Aitisi)" onReset={() => handleSelectApp('hub')}>
             <div className="rounded-3xl shadow-xl">
               <EAitisiApp
                 appRole={aitisiRole}
@@ -325,35 +351,35 @@ export default function App() {
                 onOpenDbModal={() => setIsDbModalOpen(true)}
               />
             </div>
-          </Suspense>
+          </ErrorBoundary>
         )}
 
         {activeApp === 'programmatismos' && (
-          <Suspense fallback={<ModuleFallback title="Προγραμματισμός Σχολικών Μονάδων" />}>
+          <ErrorBoundary moduleTitle="Προγραμματισμός Σχολικών Μονάδων" onReset={() => handleSelectApp('hub')}>
             <ProgrammatismosModule
               dbConfig={dbConfigs.programmatismos}
               onUpdateDbConfig={(cfg) => handleUpdateConfig('programmatismos', cfg)}
               appRole={programmatismosRole}
               setAppRole={setProgrammatismosRole}
             />
-          </Suspense>
+          </ErrorBoundary>
         )}
 
         {activeApp === 'axiologisi' && (
-          <Suspense fallback={<ModuleFallback title="Αξιολόγηση Εκπαιδευτικών" />}>
+          <ErrorBoundary moduleTitle="Αξιολόγηση Εκπαιδευτικών" onReset={() => handleSelectApp('hub')}>
             <AxiologisiModule
               dbConfig={dbConfigs.axiologisi}
               onUpdateDbConfig={(cfg) => handleUpdateConfig('axiologisi', cfg)}
               appRole={axiologisiRole}
               setAppRole={setAxiologisiRole}
             />
-          </Suspense>
+          </ErrorBoundary>
         )}
       </main>
 
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 py-6 text-center text-xs space-y-1">
-        <p className="font-medium text-slate-300">EduData Suite • Ενιαία Πύλη Εκπαιδευτικών Εφαρμογών ΔΠΕ Μανησίας</p>
+        <p className="font-medium text-slate-300">EduData Suite • Ενιαία Πύλη Εκπαιδευτικών Εφαρμογών ΔΠΕ Μαγνησίας</p>
         <p className="text-[11px] text-slate-500">
           Η-Αίτηση | Προγραμματισμός Σχολικών Μονάδων | Αξιολόγηση
         </p>

@@ -151,7 +151,7 @@ export const ProgrammatismosDirectorView: React.FC<ProgrammatismosDirectorViewPr
             {(schoolCategory === 'nip' || schoolCategory === 'eid_nip') && (
               <NipMathSection mathData={mathData as NipMathData} setMathData={setMathData} schoolName={activeSchool?.SchName} category={schoolCategory} />
             )}
-            {(schoolCategory === 'eid' || schoolCategory === 'eid_dim') && (
+            {(schoolCategory === 'eid_dim' || (schoolCategory as string) === 'eid') && (
               <EidMathSection mathData={mathData as EidMathData} setMathData={setMathData} />
             )}
             {schoolCategory === 'dim' && (
@@ -177,7 +177,7 @@ export const ProgrammatismosDirectorView: React.FC<ProgrammatismosDirectorViewPr
                   Στα Ειδικά Νηπιαγωγεία, οι εγγραφές μαθητών καθώς και η στελέχωση ΕΒΠ (ΔΕ1ΕΒΠ) &amp; ΕΕΠ (ΠΕ21-ΠΕ30) καταγράφονται συγκεντρωτικά στην καρτέλα <strong>"1. Μαθητικό Δυναμικό &amp; Στελέχωση Ειδικού Νηπιαγωγείου"</strong>.
                 </p>
               </div>
-            ) : (schoolCategory === 'eid' || schoolCategory === 'eid_dim') && ekpData ? (
+            ) : (schoolCategory === 'eid_dim' || (schoolCategory as string) === 'eid') && ekpData ? (
               <EidEkpSection ekpData={ekpData as EidEkpData} setEkpData={setEkpData} mathData={mathData as EidMathData} />
             ) : ekpData ? (
               <DimEkpSection ekpData={ekpData as DimEkpData} setEkpData={setEkpData} mathData={mathData as DimMathData} />
