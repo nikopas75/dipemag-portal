@@ -1781,9 +1781,9 @@ export const ProgrammatismosAdminView: React.FC<ProgrammatismosAdminViewProps> =
                 <button
                   type="button"
                   onClick={() => setSchoolToDelete && setSchoolToDelete(null)}
-                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow transition text-xs"
+                  className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition text-xs cursor-pointer"
                 >
-                  Κλείσιμο
+                  ΟΚ
                 </button>
               ) : (
                 <>

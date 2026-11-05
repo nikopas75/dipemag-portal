@@ -712,10 +712,6 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
         loadAdminRecords();
         safeApiFetch(`/api/programmatismos/schools?type=${schoolType}`)
           .then(r => { if (Array.isArray(r.data)) setAvailableSchools(r.data); });
-        setTimeout(() => {
-          setSchoolToDelete(null);
-          setDeleteModalSuccess(null);
-        }, 2200);
       } else {
         setDeleteModalError(data?.error || 'Σφάλμα κατά τη διαγραφή της σχολικής μονάδας.');
       }
@@ -1058,7 +1054,13 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
           onSaveSchoolUser={handleSaveSchoolUser}
           onDeleteSchoolUser={handleOpenDeleteSchoolModal}
           schoolToDelete={schoolToDelete}
-          setSchoolToDelete={setSchoolToDelete}
+          setSchoolToDelete={(val) => {
+            setSchoolToDelete(val);
+            if (!val) {
+              setDeleteModalSuccess(null);
+              setDeleteModalError(null);
+            }
+          }}
           isDeletingSchool={isDeletingSchool}
           deleteModalError={deleteModalError}
           deleteModalSuccess={deleteModalSuccess}
