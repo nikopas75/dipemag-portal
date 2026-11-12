@@ -55,13 +55,18 @@ export const AxiologisiModule: React.FC<AxiologisiModuleProps> = ({
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setAdminLoginError(null);
-    if (!adminUsername || !adminPassword) {
+    const cleanUser = adminUsername.trim();
+    const cleanPass = adminPassword.trim();
+    if (!cleanUser || !cleanPass) {
       setAdminLoginError('Παρακαλώ συμπληρώστε Όνομα Χρήστη και Κωδικό.');
       return;
     }
-    // Grant admin access
-    setAppRole('admin');
-    setIsAdminLoginOpen(false);
+    if ((cleanUser === 'plinetamag' && cleanPass === 'pl!n3tAmag') || (cleanUser === 'v.magnesia.admin' && cleanPass === 'pl!n3tAmag')) {
+      setAppRole('admin');
+      setIsAdminLoginOpen(false);
+    } else {
+      setAdminLoginError('Εσφαλμένο Όνομα Χρήστη ή Κωδικός Πρόσβασης.');
+    }
   };
 
   // Filtered evaluations list
@@ -397,10 +402,6 @@ export const AxiologisiModule: React.FC<AxiologisiModuleProps> = ({
                   className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 text-slate-100 font-mono text-xs"
                 />
               </div>
-
-              <p className="text-[11px] text-slate-400 bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
-                💡 <span className="font-semibold text-purple-300">Placeholder Διαχειριστή:</span> Χρησιμοποιήστε <code className="text-purple-300 bg-purple-950/80 px-1 py-0.5 rounded">plinetamag</code> / <code className="text-purple-300 bg-purple-950/80 px-1 py-0.5 rounded">pl!n3tAmag</code>.
-              </p>
 
               <div className="pt-2 flex justify-end space-x-3">
                 <button
