@@ -2212,7 +2212,7 @@ async function startServer() {
         return res.status(500).json({ success: false, error: 'Δεν υπάρχει ενεργή σύνδεση με τη βάση δεδομένων MySQL.' });
       }
 
-      const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
+      const allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'];
       const targetTable = allowedTables.includes(table) ? table : 'dim_users';
 
       if ((!SchID || Number(SchID) <= 0) && (!SchCode || !String(SchCode).trim())) {
@@ -2228,12 +2228,26 @@ async function startServer() {
         let targetSchCode = SchCode ? String(SchCode).trim() : '';
         let targetSchName = '';
 
-        const findWhere = targetSchID ? 'SchID = ?' : 'SchCode = ?';
-        const findVal = targetSchID ? targetSchID : targetSchCode;
-        const [foundRows]: any = await conn.query(
-          `SELECT SchID, SchCode, SchName FROM programmatismos.${targetTable} WHERE ${findWhere} LIMIT 1;`,
-          [findVal]
-        );
+        let foundRows: any[] = [];
+        if (targetSchID && targetSchCode) {
+          const [rows]: any = await conn.query(
+            `SELECT SchID, SchCode, SchName FROM \`${targetTable}\` WHERE SchID = ? OR SchCode = ? LIMIT 1;`,
+            [targetSchID, targetSchCode]
+          );
+          foundRows = rows;
+        } else if (targetSchID) {
+          const [rows]: any = await conn.query(
+            `SELECT SchID, SchCode, SchName FROM \`${targetTable}\` WHERE SchID = ? LIMIT 1;`,
+            [targetSchID]
+          );
+          foundRows = rows;
+        } else if (targetSchCode) {
+          const [rows]: any = await conn.query(
+            `SELECT SchID, SchCode, SchName FROM \`${targetTable}\` WHERE SchCode = ? OR TRIM(SchCode) = ? LIMIT 1;`,
+            [targetSchCode, targetSchCode]
+          );
+          foundRows = rows;
+        }
 
         if (foundRows && foundRows.length > 0) {
           targetSchID = foundRows[0].SchID;
@@ -2241,13 +2255,12 @@ async function startServer() {
           targetSchName = String(foundRows[0].SchName || '').trim();
         }
 
-        // 2. Map target user table to all corresponding data tables
+        // 2. Map target user table to all corresponding data tables (Ακριβής αντιστοίχιση)
         const relatedTablesMap: Record<string, string[]> = {
           dim_users: ['dim_data_math', 'dim_data_ekp'],
-          nip_users: ['nip_data_math', 'nip_data_ekp'],
+          nip_users: ['nip_data_math'],
           eid_dim_users: ['eid_dim_data_math', 'eid_dim_data_ekp'],
-          eid_nip_users: ['eid_nip_data_math', 'eid_nip_data_ekp'],
-          eid_users: ['eid_dim_data_math', 'eid_dim_data_ekp', 'eid_nip_data_math', 'eid_nip_data_ekp']
+          eid_nip_users: ['eid_nip_data_math']
         };
 
         const dataTablesToCheck = relatedTablesMap[targetTable] || [];
@@ -2257,29 +2270,31 @@ async function startServer() {
         // 3. Delete matching records from all associated *_data_* tables
         for (const dTable of dataTablesToCheck) {
           try {
-            const [tExists]: any = await conn.query(`SHOW TABLES FROM programmatismos LIKE ?;`, [dTable]);
+            const [tExists]: any = await conn.query(`SHOW TABLES LIKE '${dTable}';`);
             if (!tExists || tExists.length === 0) continue;
 
-            const [cols]: any = await conn.query(`SHOW COLUMNS FROM programmatismos.${dTable};`);
+            const [cols]: any = await conn.query(`SHOW COLUMNS FROM \`${dTable}\`;`);
             const colNames = cols.map((c: any) => c.Field);
             const hasSchCode = colNames.includes('SchCode');
             const hasSchID = colNames.includes('SchID');
 
-            let delSql = '';
-            let delParams: any[] = [];
+            const delConditions: string[] = [];
+            const delParams: any[] = [];
 
-            if (hasSchCode && hasSchID && targetSchCode && targetSchID) {
-              delSql = `DELETE FROM programmatismos.${dTable} WHERE SchCode = ? OR SchID = ?;`;
-              delParams = [targetSchCode, targetSchID];
-            } else if (hasSchCode && targetSchCode) {
-              delSql = `DELETE FROM programmatismos.${dTable} WHERE SchCode = ?;`;
-              delParams = [targetSchCode];
-            } else if (hasSchID && targetSchID) {
-              delSql = `DELETE FROM programmatismos.${dTable} WHERE SchID = ?;`;
-              delParams = [targetSchID];
+            if (hasSchCode && targetSchCode) {
+              delConditions.push('SchCode = ?');
+              delParams.push(targetSchCode);
+              delConditions.push('TRIM(SchCode) = ?');
+              delParams.push(targetSchCode.trim());
             }
 
-            if (delSql) {
+            if (hasSchID && targetSchID && Number(targetSchID) > 0) {
+              delConditions.push('SchID = ?');
+              delParams.push(Number(targetSchID));
+            }
+
+            if (delConditions.length > 0) {
+              const delSql = `DELETE FROM \`${dTable}\` WHERE ${delConditions.join(' OR ')};`;
               const [delRes]: any = await conn.query(delSql, delParams);
               const affected = delRes?.affectedRows || 0;
               if (affected > 0) {
@@ -2293,17 +2308,21 @@ async function startServer() {
         }
 
         // 4. Delete the school user record itself from the *_users table
-        let userDelSql = '';
-        let userDelParams: any[] = [];
-        if (targetSchID) {
-          userDelSql = `DELETE FROM programmatismos.${targetTable} WHERE SchID = ?;`;
-          userDelParams = [targetSchID];
-        } else if (targetSchCode) {
-          userDelSql = `DELETE FROM programmatismos.${targetTable} WHERE SchCode = ?;`;
-          userDelParams = [targetSchCode];
+        const userDelConditions: string[] = [];
+        const userDelParams: any[] = [];
+        if (targetSchID && Number(targetSchID) > 0) {
+          userDelConditions.push('SchID = ?');
+          userDelParams.push(Number(targetSchID));
+        }
+        if (targetSchCode) {
+          userDelConditions.push('SchCode = ?');
+          userDelParams.push(targetSchCode);
+          userDelConditions.push('TRIM(SchCode) = ?');
+          userDelParams.push(targetSchCode.trim());
         }
 
-        if (userDelSql) {
+        if (userDelConditions.length > 0) {
+          const userDelSql = `DELETE FROM \`${targetTable}\` WHERE ${userDelConditions.join(' OR ')};`;
           await conn.query(userDelSql, userDelParams);
         }
 

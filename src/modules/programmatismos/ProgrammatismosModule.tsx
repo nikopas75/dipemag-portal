@@ -727,7 +727,7 @@ export const ProgrammatismosModule: React.FC<ProgrammatismosModuleProps> = ({
       if (categoryFilter === 'all') return true;
       if (categoryFilter === 'dim' || categoryFilter === 'dim_users') return r.sourceTable === 'dim_users';
       if (categoryFilter === 'nip' || categoryFilter === 'nip_users') return r.sourceTable === 'nip_users';
-      if (categoryFilter === 'eid_dim' || categoryFilter === 'eid_dim_users') return r.sourceTable === 'eid_dim_users' || r.sourceTable === 'eid_users';
+      if (categoryFilter === 'eid_dim' || categoryFilter === 'eid_dim_users') return r.sourceTable === 'eid_dim_users';
       if (categoryFilter === 'eid_nip' || categoryFilter === 'eid_nip_users') return r.sourceTable === 'eid_nip_users';
       return true;
     });

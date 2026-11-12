@@ -219,7 +219,7 @@ if ($route === '/api/status' || $routeClean === 'status' || $routeClean === '') 
             try {
                 $pdo->exec("USE `$requestedDb`");
                 if ($requestedDb === 'programmatismos') {
-                    $stmt = $pdo->query("SELECT (SELECT COUNT(*) FROM dim_users) + (SELECT COUNT(*) FROM nip_users) + (SELECT COUNT(*) FROM eid_users)");
+                    $stmt = $pdo->query("SELECT (SELECT COUNT(*) FROM dim_users) + (SELECT COUNT(*) FROM nip_users) + (SELECT COUNT(*) FROM eid_dim_users) + (SELECT COUNT(*) FROM eid_nip_users)");
                     if ($stmt) $totalRecords = (int)$stmt->fetchColumn();
                 } else if ($requestedDb === 'axiologisi') {
                     $stmt = $pdo->query("SELECT COUNT(*) FROM evaluations");
@@ -1361,7 +1361,7 @@ if ($route === '/api/programmatismos/admin/school/delete' && $method === 'POST')
         sendJson(['success' => false, 'error' => 'Δεν υπάρχει ενεργή σύνδεση με τη βάση δεδομένων.'], 500);
     }
     $tbl = $input['table'] ?? 'dim_users';
-    $allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users', 'eid_users'];
+    $allowedTables = ['dim_users', 'nip_users', 'eid_dim_users', 'eid_nip_users'];
     $targetTable = in_array($tbl, $allowedTables) ? $tbl : 'dim_users';
 
     $schID = isset($input['SchID']) && (int)$input['SchID'] > 0 ? (int)$input['SchID'] : null;
@@ -1379,11 +1379,20 @@ if ($route === '/api/programmatismos/admin/school/delete' && $method === 'POST')
         $targetSchCode = $schCode;
         $targetSchName = '';
 
-        $findWhere = $targetSchID ? 'SchID = ?' : 'SchCode = ?';
-        $findVal = $targetSchID ? $targetSchID : $targetSchCode;
-        $findStmt = $pdo->prepare("SELECT SchID, SchCode, SchName FROM `$targetTable` WHERE $findWhere LIMIT 1");
-        $findStmt->execute([$findVal]);
-        $found = $findStmt->fetch(PDO::FETCH_ASSOC);
+        $found = null;
+        if (!empty($targetSchID) && !empty($targetSchCode)) {
+            $findStmt = $pdo->prepare("SELECT SchID, SchCode, SchName FROM `$targetTable` WHERE SchID = ? OR SchCode = ? LIMIT 1");
+            $findStmt->execute([$targetSchID, $targetSchCode]);
+            $found = $findStmt->fetch(PDO::FETCH_ASSOC);
+        } else if (!empty($targetSchID)) {
+            $findStmt = $pdo->prepare("SELECT SchID, SchCode, SchName FROM `$targetTable` WHERE SchID = ? LIMIT 1");
+            $findStmt->execute([$targetSchID]);
+            $found = $findStmt->fetch(PDO::FETCH_ASSOC);
+        } else if (!empty($targetSchCode)) {
+            $findStmt = $pdo->prepare("SELECT SchID, SchCode, SchName FROM `$targetTable` WHERE SchCode = ? OR TRIM(SchCode) = ? LIMIT 1");
+            $findStmt->execute([$targetSchCode, trim($targetSchCode)]);
+            $found = $findStmt->fetch(PDO::FETCH_ASSOC);
+        }
 
         if ($found) {
             $targetSchID = (int)$found['SchID'];
@@ -1391,13 +1400,13 @@ if ($route === '/api/programmatismos/admin/school/delete' && $method === 'POST')
             $targetSchName = trim($found['SchName'] ?? '');
         }
 
-        // 2. Map target user table to all corresponding data tables
+        // 2. Map target user table to all corresponding data tables (Ακριβής αντιστοίχιση)
+        // Σημείωση: Τα Νηπιαγωγεία (τυπικά & ειδικά) διαθέτουν ΜΟΝΟ πίνακα data_math
         $relatedTablesMap = [
             'dim_users' => ['dim_data_math', 'dim_data_ekp'],
-            'nip_users' => ['nip_data_math', 'nip_data_ekp'],
+            'nip_users' => ['nip_data_math'],
             'eid_dim_users' => ['eid_dim_data_math', 'eid_dim_data_ekp'],
-            'eid_nip_users' => ['eid_nip_data_math', 'eid_nip_data_ekp'],
-            'eid_users' => ['eid_dim_data_math', 'eid_dim_data_ekp', 'eid_nip_data_math', 'eid_nip_data_ekp']
+            'eid_nip_users' => ['eid_nip_data_math']
         ];
 
         $dataTablesToCheck = $relatedTablesMap[$targetTable] ?? [];
@@ -1407,9 +1416,11 @@ if ($route === '/api/programmatismos/admin/school/delete' && $method === 'POST')
         // 3. Delete matching records from all associated *_data_* tables
         foreach ($dataTablesToCheck as $dTable) {
             try {
-                $checkTableStmt = $pdo->prepare("SHOW TABLES LIKE ?");
-                $checkTableStmt->execute([$dTable]);
-                if (!$checkTableStmt->fetch()) continue;
+                // Ασφαλής έλεγχος ύπαρξης πίνακα χωρίς prepared statement σε SHOW TABLES (που αποτυγχάνει σε MySQL PDO)
+                $checkTable = $pdo->query("SHOW TABLES LIKE '$dTable'");
+                if (!$checkTable || !$checkTable->fetch()) {
+                    continue;
+                }
 
                 $colsStmt = $pdo->query("SHOW COLUMNS FROM `$dTable`");
                 $cols = $colsStmt ? $colsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
@@ -1417,21 +1428,23 @@ if ($route === '/api/programmatismos/admin/school/delete' && $method === 'POST')
                 $hasSchCode = in_array('SchCode', $colNames);
                 $hasSchID = in_array('SchID', $colNames);
 
-                $delSql = '';
+                $delConditions = [];
                 $delParams = [];
 
-                if ($hasSchCode && $hasSchID && !empty($targetSchCode) && !empty($targetSchID)) {
-                    $delSql = "DELETE FROM `$dTable` WHERE SchCode = ? OR SchID = ?";
-                    $delParams = [$targetSchCode, $targetSchID];
-                } else if ($hasSchCode && !empty($targetSchCode)) {
-                    $delSql = "DELETE FROM `$dTable` WHERE SchCode = ?";
-                    $delParams = [$targetSchCode];
-                } else if ($hasSchID && !empty($targetSchID)) {
-                    $delSql = "DELETE FROM `$dTable` WHERE SchID = ?";
-                    $delParams = [$targetSchID];
+                if ($hasSchCode && !empty($targetSchCode)) {
+                    $delConditions[] = "SchCode = ?";
+                    $delParams[] = $targetSchCode;
+                    $delConditions[] = "TRIM(SchCode) = ?";
+                    $delParams[] = trim($targetSchCode);
                 }
 
-                if (!empty($delSql)) {
+                if ($hasSchID && !empty($targetSchID) && (int)$targetSchID > 0) {
+                    $delConditions[] = "SchID = ?";
+                    $delParams[] = (int)$targetSchID;
+                }
+
+                if (!empty($delConditions)) {
+                    $delSql = "DELETE FROM `$dTable` WHERE " . implode(' OR ', $delConditions);
                     $delStmt = $pdo->prepare($delSql);
                     $delStmt->execute($delParams);
                     $affected = $delStmt->rowCount();
@@ -1441,22 +1454,26 @@ if ($route === '/api/programmatismos/admin/school/delete' && $method === 'POST')
                     }
                 }
             } catch (\Throwable $dErr) {
-                // Log or ignore subtable error
+                logPhpError("[Cascading Delete] Σφάλμα στον πίνακα $dTable: " . $dErr->getMessage());
             }
         }
 
         // 4. Delete the school user record itself from the *_users table
-        $userDelSql = '';
+        $userDelConditions = [];
         $userDelParams = [];
-        if (!empty($targetSchID)) {
-            $userDelSql = "DELETE FROM `$targetTable` WHERE SchID = ?";
-            $userDelParams = [$targetSchID];
-        } else if (!empty($targetSchCode)) {
-            $userDelSql = "DELETE FROM `$targetTable` WHERE SchCode = ?";
-            $userDelParams = [$targetSchCode];
+        if (!empty($targetSchID) && (int)$targetSchID > 0) {
+            $userDelConditions[] = "SchID = ?";
+            $userDelParams[] = (int)$targetSchID;
+        }
+        if (!empty($targetSchCode)) {
+            $userDelConditions[] = "SchCode = ?";
+            $userDelParams[] = $targetSchCode;
+            $userDelConditions[] = "TRIM(SchCode) = ?";
+            $userDelParams[] = trim($targetSchCode);
         }
 
-        if (!empty($userDelSql)) {
+        if (!empty($userDelConditions)) {
+            $userDelSql = "DELETE FROM `$targetTable` WHERE " . implode(' OR ', $userDelConditions);
             $userDelStmt = $pdo->prepare($userDelSql);
             $userDelStmt->execute($userDelParams);
         }
